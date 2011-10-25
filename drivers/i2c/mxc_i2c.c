@@ -37,6 +37,7 @@
 
 #include <asm/arch/clock.h>
 #include <asm/arch/imx-regs.h>
+#include <i2c.h>
 
 struct mxc_i2c_regs {
 	uint32_t	iadr;
@@ -95,14 +96,11 @@ static u16 i2c_clk_div[50][2] = {
 	{ 3072,	0x1E }, { 3840,	0x1F }
 };
 
-static u8 clk_idx;
-
 /*
  * Calculate and set proper clock divider
  */
-static void i2c_imx_set_clk(unsigned int rate)
+static uint8_t i2c_imx_get_clk(unsigned int rate)
 {
-	struct mxc_i2c_regs *i2c_regs = (struct mxc_i2c_regs *)I2C_BASE;
 	unsigned int i2c_clk_rate;
 	unsigned int div;
 	int i;
@@ -127,9 +125,7 @@ static void i2c_imx_set_clk(unsigned int rate)
 		for (i = 0; i2c_clk_div[i][0] < div; i++)
 			;
 
-	/* Store divider value */
-	clk_idx = i2c_clk_div[i][1];
-	writeb(clk_idx, &i2c_regs->ifdr);
+	return i2c_clk_div[i][1];
 }
 
 /*
@@ -148,7 +144,12 @@ void i2c_reset(void)
  */
 void i2c_init(int speed, int unused)
 {
-	i2c_imx_set_clk(speed);
+	struct mxc_i2c_regs *i2c_regs = (struct mxc_i2c_regs *)I2C_BASE;
+	u8 idx = i2c_imx_get_clk(speed);
+
+	/* Store divider value */
+	writeb(idx, &i2c_regs->ifdr);
+
 	i2c_reset();
 }
 
@@ -217,8 +218,11 @@ int i2c_imx_start(void)
 	struct mxc_i2c_regs *i2c_regs = (struct mxc_i2c_regs *)I2C_BASE;
 	unsigned int temp = 0;
 	int result;
+	int speed = i2c_get_bus_speed();
+	u8 idx = i2c_imx_get_clk(speed);
 
-	writeb(clk_idx, &i2c_regs->ifdr);
+	/* Store divider value */
+	writeb(idx, &i2c_regs->ifdr);
 
 	/* Enable I2C controller */
 	writeb(0, &i2c_regs->i2sr);
@@ -291,11 +295,10 @@ int i2c_imx_set_chip_addr(uchar chip, int read)
 int i2c_imx_set_reg_addr(uint addr, int alen)
 {
 	struct mxc_i2c_regs *i2c_regs = (struct mxc_i2c_regs *)I2C_BASE;
-	int ret;
-	int i;
+	int ret = 0;
 
-	for (i = 0; i < (8 * alen); i += 8) {
-		writeb((addr >> i) & 0xff, &i2c_regs->i2dr);
+	while (alen--) {
+		writeb((addr >> (alen * 8)) & 0xff, &i2c_regs->i2dr);
 
 		ret = i2c_imx_trx_complete();
 		if (ret)
