@@ -242,7 +242,6 @@
 #define CONFIG_SYS_NAND_BASE            0x40000000
 
 #define CONFIG_SYS_MAX_NAND_DEVICE      2
-#define NAND_MAX_CHIPS                  CONFIG_SYS_MAX_NAND_DEVICE
 #define CONFIG_SYS_NAND_SELECT_DEVICE	/* driver supports mutipl. chips */
 
 /*
@@ -307,7 +306,6 @@
 /* Use the HUSH parser */
 #define CONFIG_SYS_HUSH_PARSER
 #ifdef  CONFIG_SYS_HUSH_PARSER
-#define CONFIG_SYS_PROMPT_HUSH_PS2 "> "
 #endif
 
 /*

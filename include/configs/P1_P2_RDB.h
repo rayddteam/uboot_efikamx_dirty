@@ -151,7 +151,7 @@ extern unsigned long get_board_sys_clk(unsigned long dummy);
 #define CONFIG_SYS_CCSRBAR		0xffe00000
 #define CONFIG_SYS_CCSRBAR_PHYS_LOW	CONFIG_SYS_CCSRBAR
 
-#if defined(CONFIG_RAMBOOT_NAND) && !defined(CONFIG_NAND_SPL)
+#if defined(CONFIG_NAND_SPL)
 #define CONFIG_SYS_CCSR_DO_NOT_RELOCATE
 #endif
 
@@ -273,11 +273,10 @@ extern unsigned long get_board_sys_clk(unsigned long dummy);
 #endif
 #endif
 
+#define CONFIG_CMD_NAND
 #define CONFIG_SYS_NAND_BASE_LIST	{CONFIG_SYS_NAND_BASE}
 #define CONFIG_SYS_MAX_NAND_DEVICE	1
-#define NAND_MAX_CHIPS			1
 #define CONFIG_MTD_NAND_VERIFY_WRITE
-#define CONFIG_CMD_NAND			1
 #define CONFIG_NAND_FSL_ELBC		1
 #define CONFIG_SYS_NAND_BLOCK_SIZE	(16 * 1024)
 
@@ -355,9 +354,6 @@ extern unsigned long get_board_sys_clk(unsigned long dummy);
 
 /* Use the HUSH parser */
 #define CONFIG_SYS_HUSH_PARSER
-#ifdef	CONFIG_SYS_HUSH_PARSER
-#define CONFIG_SYS_PROMPT_HUSH_PS2 "> "
-#endif
 
 /*
  * Pass open firmware flat tree
@@ -519,6 +515,7 @@ extern unsigned long get_board_sys_clk(unsigned long dummy);
 	#define CONFIG_ENV_OFFSET	((512 * 1024) + CONFIG_SYS_NAND_BLOCK_SIZE)
 #elif defined(CONFIG_RAMBOOT_SDCARD)
 #define CONFIG_ENV_IS_IN_MMC
+#define CONFIG_FSL_FIXED_MMC_LOCATION
 #define CONFIG_ENV_SIZE			0x2000
 #define CONFIG_SYS_MMC_ENV_DEV		0
 #elif defined(CONFIG_RAMBOOT_SPIFLASH)

@@ -28,8 +28,8 @@
 
 #include <fdt.h>
 
-u32 fdt_getprop_u32_default(void *fdt, const char *path, const char *prop,
-				const u32 dflt);
+u32 fdt_getprop_u32_default(const void *fdt, const char *path,
+				const char *prop, const u32 dflt);
 int fdt_chosen(void *fdt, int force);
 int fdt_initrd(void *fdt, ulong initrd_start, ulong initrd_end, int force);
 void do_fixup_by_path(void *fdt, const char *path, const char *prop,
@@ -61,11 +61,11 @@ int fdt_find_and_setprop(void *fdt, const char *node, const char *prop,
 			 const void *val, int len, int create);
 void fdt_fixup_qe_firmware(void *fdt);
 
-#ifdef CONFIG_HAS_FSL_DR_USB
+#if defined(CONFIG_HAS_FSL_DR_USB) || defined(CONFIG_HAS_FSL_MPH_USB)
 void fdt_fixup_dr_usb(void *blob, bd_t *bd);
 #else
 static inline void fdt_fixup_dr_usb(void *blob, bd_t *bd) {}
-#endif /* CONFIG_HAS_FSL_DR_USB */
+#endif /* defined(CONFIG_HAS_FSL_DR_USB) || defined(CONFIG_HAS_FSL_MPH_USB) */
 
 #if defined(CONFIG_SYS_FSL_SEC_COMPAT)
 void fdt_fixup_crypto_node(void *blob, int sec_rev);

@@ -130,7 +130,8 @@ void ipu_dmfc_init(int dmfc_type, int first)
 		dmfc_size_27 = 256 * 4;
 		dmfc_size_23 = 256 * 4;
 	} else {
-		/* 1 - segment 0, 1;
+		/* Smartbook use this XXXRAY
+		 * 1 - segment 0, 1;
 		 * 5B - segement 4, 5;
 		 * 5F - segement 6, 7;
 		 * 1C, 2C and 6B, 6F unused;

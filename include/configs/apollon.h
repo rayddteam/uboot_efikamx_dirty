@@ -37,6 +37,8 @@
 #define CONFIG_APOLLON		1
 #define CONFIG_APOLLON_PLUS	1 /* If you have apollon plus 1.x */
 
+#define CONFIG_ONENAND_U_BOOT	y
+
 /* Clock config to target*/
 #define PRCM_CONFIG_I		1
 /* #define PRCM_CONFIG_II	1 */
@@ -110,7 +112,6 @@
 #define	CONFIG_ENV_OVERWRITE
 #define	CONFIG_CONS_INDEX	1
 #define	CONFIG_BAUDRATE		115200
-#define	CONFIG_SYS_BAUDRATE_TABLE	{9600, 19200, 38400, 57600, 115200}
 
 /* this must be included AFTER the definition of CONFIG_COMMANDS (if any) */
 #include	<config_cmd_default.h>
@@ -211,10 +212,6 @@
  * The stack sizes are set up in start.S using the settings below
  */
 #define	CONFIG_STACKSIZE SZ_128K	/* regular stack */
-#ifdef	CONFIG_USE_IRQ
-# define	CONFIG_STACKSIZE_IRQ SZ_4K	/* IRQ stack */
-# define	CONFIG_STACKSIZE_FIQ SZ_4K	/* FIQ stack */
-#endif
 
 /*-----------------------------------------------------------------------
  * Physical Memory Map

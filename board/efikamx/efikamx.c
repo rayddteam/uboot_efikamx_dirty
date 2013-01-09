@@ -27,6 +27,7 @@
 #include <asm/arch/imx-regs.h>
 #include <asm/arch/mx5x_pins.h>
 #include <asm/arch/iomux.h>
+#include <asm/arch/clock.h>
 #include <asm/gpio.h>
 #include <asm/errno.h>
 #include <asm/arch/sys_proto.h>
@@ -34,8 +35,10 @@
 #include <i2c.h>
 #include <mmc.h>
 #include <fsl_esdhc.h>
+#include <pmic.h>
 #include <fsl_pmic.h>
 #include <mc13892.h>
+#include <linux/ctype.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -205,34 +208,38 @@ static void power_init(void)
 {
 	unsigned int val;
 	struct mxc_ccm_reg *mxc_ccm = (struct mxc_ccm_reg *)MXC_CCM_BASE;
+	struct pmic *p;
+
+	pmic_init();
+	p = get_pmic();
 
 	/* Write needed to Power Gate 2 register */
-	val = pmic_reg_read(REG_POWER_MISC);
+	pmic_reg_read(p, REG_POWER_MISC, &val);
 	val &= ~PWGT2SPIEN;
-	pmic_reg_write(REG_POWER_MISC, val);
+	pmic_reg_write(p, REG_POWER_MISC, val);
 
 	/* Externally powered */
-	val = pmic_reg_read(REG_CHARGE);
+	pmic_reg_read(p, REG_CHARGE, &val);
 	val |= ICHRG0 | ICHRG1 | ICHRG2 | ICHRG3 | CHGAUTOB;
-	pmic_reg_write(REG_CHARGE, val);
+	pmic_reg_write(p, REG_CHARGE, val);
 
 	/* power up the system first */
-	pmic_reg_write(REG_POWER_MISC, PWUP);
+	pmic_reg_write(p, REG_POWER_MISC, PWUP);
 
 	/* Set core voltage to 1.1V */
-	val = pmic_reg_read(REG_SW_0);
-	val = (val & ~SWx_VOLT_MASK) | SWx_1_100V;
-	pmic_reg_write(REG_SW_0, val);
+	pmic_reg_read(p, REG_SW_0, &val);
+	val = (val & ~SWx_VOLT_MASK) | SWx_1_200V;
+	pmic_reg_write(p, REG_SW_0, val);
 
 	/* Setup VCC (SW2) to 1.25 */
-	val = pmic_reg_read(REG_SW_1);
+	pmic_reg_read(p, REG_SW_1, &val);
 	val = (val & ~SWx_VOLT_MASK) | SWx_1_250V;
-	pmic_reg_write(REG_SW_1, val);
+	pmic_reg_write(p, REG_SW_1, val);
 
 	/* Setup 1V2_DIG1 (SW3) to 1.25 */
-	val = pmic_reg_read(REG_SW_2);
+	pmic_reg_read(p, REG_SW_2, &val);
 	val = (val & ~SWx_VOLT_MASK) | SWx_1_250V;
-	pmic_reg_write(REG_SW_2, val);
+	pmic_reg_write(p, REG_SW_2, val);
 	udelay(50);
 
 	/* Raise the core frequency to 800MHz */
@@ -240,46 +247,51 @@ static void power_init(void)
 
 	/* Set switchers in Auto in NORMAL mode & STANDBY mode */
 	/* Setup the switcher mode for SW1 & SW2*/
-	val = pmic_reg_read(REG_SW_4);
+	pmic_reg_read(p, REG_SW_4, &val);
 	val = (val & ~((SWMODE_MASK << SWMODE1_SHIFT) |
 		(SWMODE_MASK << SWMODE2_SHIFT)));
 	val |= (SWMODE_AUTO_AUTO << SWMODE1_SHIFT) |
 		(SWMODE_AUTO_AUTO << SWMODE2_SHIFT);
-	pmic_reg_write(REG_SW_4, val);
+	pmic_reg_write(p, REG_SW_4, val);
 
 	/* Setup the switcher mode for SW3 & SW4 */
-	val = pmic_reg_read(REG_SW_5);
+	pmic_reg_read(p, REG_SW_5, &val);
 	val = (val & ~((SWMODE_MASK << SWMODE3_SHIFT) |
 		(SWMODE_MASK << SWMODE4_SHIFT)));
 	val |= (SWMODE_AUTO_AUTO << SWMODE3_SHIFT) |
 		(SWMODE_AUTO_AUTO << SWMODE4_SHIFT);
-	pmic_reg_write(REG_SW_5, val);
+	pmic_reg_write(p, REG_SW_5, val);
 
-	/* Set VDIG to 1.65V, VGEN3 to 1.8V, VCAM to 2.6V */
-	val = pmic_reg_read(REG_SETTING_0);
+	/* Set VDIG to 1.8V, VGEN3 to 1.8V, VCAM to 2.6V */
+	pmic_reg_read(p, REG_SETTING_0, &val);
 	val &= ~(VCAM_MASK | VGEN3_MASK | VDIG_MASK);
-	val |= VDIG_1_65 | VGEN3_1_8 | VCAM_2_6;
-	pmic_reg_write(REG_SETTING_0, val);
+	val |= VDIG_1_8 | VGEN3_1_8 | VCAM_2_6;
+	pmic_reg_write(p, REG_SETTING_0, val);
 
 	/* Set VVIDEO to 2.775V, VAUDIO to 3V, VSD to 3.15V */
-	val = pmic_reg_read(REG_SETTING_1);
+	pmic_reg_read(p, REG_SETTING_1, &val);
 	val &= ~(VVIDEO_MASK | VSD_MASK | VAUDIO_MASK);
-	val |= VSD_3_15 | VAUDIO_3_0 | VVIDEO_2_775;
-	pmic_reg_write(REG_SETTING_1, val);
+	val |= VSD_3_15 | VAUDIO_3_0 | VVIDEO_2_775 | VGEN1_1_2 | VGEN2_3_15;
+	pmic_reg_write(p, REG_SETTING_1, val);
+
+	/* Enable VGEN1, VGEN2, VDIG, VPLL */
+	pmic_reg_read(p, REG_MODE_0, &val);
+	val |= VGEN1EN | VDIGEN | VGEN2EN | VPLLEN;
+	pmic_reg_write(p, REG_MODE_0, val);
 
 	/* Configure VGEN3 and VCAM regulators to use external PNP */
 	val = VGEN3CONFIG | VCAMCONFIG;
-	pmic_reg_write(REG_MODE_1, val);
+	pmic_reg_write(p, REG_MODE_1, val);
 	udelay(200);
 
 	/* Enable VGEN3, VCAM, VAUDIO, VVIDEO, VSD regulators */
 	val = VGEN3EN | VGEN3CONFIG | VCAMEN | VCAMCONFIG |
-		VVIDEOEN | VAUDIOEN  | VSDEN;
-	pmic_reg_write(REG_MODE_1, val);
+		VVIDEOEN | VAUDIOEN | VSDEN;
+	pmic_reg_write(p, REG_MODE_1, val);
 
-	val = pmic_reg_read(REG_POWER_CTL2);
+	pmic_reg_read(p, REG_POWER_CTL2, &val);
 	val |= WDIRESET;
-	pmic_reg_write(REG_POWER_CTL2, val);
+	pmic_reg_write(p, REG_POWER_CTL2, val);
 
 	udelay(2500);
 }
@@ -290,7 +302,7 @@ static inline void power_init(void) { }
 /*
  * MMC configuration
  */
-#ifdef CONFIG_FSL_ESDHC
+#ifdef CONFIG_IMX_MMC
 struct fsl_esdhc_cfg esdhc_cfg[2] = {
 	{MMC_SDHC1_BASE_ADDR, 1},
 	{MMC_SDHC2_BASE_ADDR, 1},
@@ -304,17 +316,18 @@ static inline uint32_t efika_mmc_cd(void)
 		return MX51_PIN_EIM_CS2;
 }
 
-int board_mmc_getcd(u8 *absent, struct mmc *mmc)
+int board_mmc_getcd(struct mmc *mmc)
 {
 	struct fsl_esdhc_cfg *cfg = (struct fsl_esdhc_cfg *)mmc->priv;
 	uint32_t cd = efika_mmc_cd();
+	int ret;
 
 	if (cfg->esdhc_base == MMC_SDHC1_BASE_ADDR)
-		*absent = gpio_get_value(IOMUX_TO_GPIO(cd));
+		ret = !gpio_get_value(IOMUX_TO_GPIO(cd));
 	else
-		*absent = gpio_get_value(IOMUX_TO_GPIO(MX51_PIN_GPIO1_8));
+		ret = !gpio_get_value(IOMUX_TO_GPIO(MX51_PIN_GPIO1_8));
 
-	return 0;
+	return ret;
 }
 
 int board_mmc_init(bd_t *bis)
@@ -421,9 +434,17 @@ int board_mmc_init(bd_t *bis)
 		gpio_direction_input(IOMUX_TO_GPIO(MX51_PIN_GPIO1_8));
 		gpio_direction_input(IOMUX_TO_GPIO(MX51_PIN_GPIO1_7));
 
+//	esdhc_cfg[0].sdhc_clk = mxc_get_clock(MXC_ESDHC_CLK);
+//	esdhc_cfg[1].sdhc_clk = mxc_get_clock(MXC_ESDHC2_CLK);
+	esdhc_cfg[0].sdhc_clk = mxc_get_clock(MXC_IPG_PERCLK);
+	esdhc_cfg[1].sdhc_clk = mxc_get_clock(MXC_IPG_PERCLK);
+
 		ret = fsl_esdhc_initialize(bis, &esdhc_cfg[0]);
 		if (!ret)
-			ret = fsl_esdhc_initialize(bis, &esdhc_cfg[1]);
+			printf("fsl_esdhc_initialize 0 fail\n");
+		ret = fsl_esdhc_initialize(bis, &esdhc_cfg[1]);
+		if (!ret)
+			printf("fsl_esdhc_initialize 1 fail\n");
 	} else {	/* New boards use only SDHC1 */
 		/* SDHC1 IOMUX */
 		mxc_request_iomux(MX51_PIN_SD1_CMD,
@@ -452,6 +473,7 @@ int board_mmc_init(bd_t *bis)
 		mxc_iomux_set_pad(MX51_PIN_SD1_DATA3,
 			PAD_CTL_DRV_MAX | PAD_CTL_22K_PU | PAD_CTL_SRE_FAST);
 
+	esdhc_cfg[0].sdhc_clk = mxc_get_clock(MXC_ESDHC_CLK);
 		ret = fsl_esdhc_initialize(bis, &esdhc_cfg[0]);
 	}
 
@@ -528,6 +550,57 @@ void setup_iomux_ata(void)
 #else
 static inline void setup_iomux_ata(void) { }
 #endif
+
+/*
+ * EHCI USB
+ */
+#ifdef	CONFIG_CMD_USB
+extern void setup_iomux_usb(void);
+#else
+static inline void setup_iomux_usb(void) { }
+#endif
+
+/*
+ * LCD
+ */
+#ifdef CONFIG_VIDEO
+extern void setup_iomux_lcd(void);
+extern void setup_efika_lcd(void);
+extern void setup_efika_lcd_early(void);
+#else
+static inline void setup_iomux_lcd(void) { }
+static inline void setup_efika_lcd(void) { }
+static inline void setup_efika_lcd_early(void) { }
+#endif
+
+/*
+ * I2C
+ */
+void setup_iomux_i2c(void)
+{
+	mxc_request_iomux(MX51_PIN_GPIO1_2, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_GPIO1_3, IOMUX_CONFIG_ALT0);
+
+	/* i2c2 SDA */
+	mxc_request_iomux(MX51_PIN_KEY_COL5,
+			IOMUX_CONFIG_ALT3 | IOMUX_CONFIG_SION);
+	mxc_iomux_set_input(MX51_I2C2_IPP_SDA_IN_SELECT_INPUT,
+			INPUT_CTL_PATH1);
+	mxc_iomux_set_pad(MX51_PIN_KEY_COL5,
+			PAD_CTL_SRE_FAST | PAD_CTL_DRV_HIGH |
+			PAD_CTL_100K_PU | PAD_CTL_HYS_ENABLE |
+			PAD_CTL_ODE_OPENDRAIN_ENABLE);
+
+	/* i2c2 SCL */
+	mxc_request_iomux(MX51_PIN_KEY_COL4,
+			IOMUX_CONFIG_ALT3 | IOMUX_CONFIG_SION);
+	mxc_iomux_set_input(MX51_I2C2_IPP_SCL_IN_SELECT_INPUT,
+			INPUT_CTL_PATH1);
+	mxc_iomux_set_pad(MX51_PIN_KEY_COL4,
+			PAD_CTL_SRE_FAST | PAD_CTL_DRV_HIGH |
+			PAD_CTL_100K_PU | PAD_CTL_HYS_ENABLE |
+			PAD_CTL_ODE_OPENDRAIN_ENABLE);
+}
 
 /*
  * LED configuration
@@ -659,6 +732,7 @@ int board_early_init_f(void)
 	setup_iomux_uart();
 	setup_iomux_spi();
 	setup_iomux_led();
+	setup_iomux_lcd();
 
 	return 0;
 }
@@ -666,6 +740,8 @@ int board_early_init_f(void)
 int board_init(void)
 {
 	gd->bd->bi_boot_params = PHYS_SDRAM_1 + 0x100;
+
+	setup_efika_lcd_early();
 
 	return 0;
 }
@@ -676,10 +752,18 @@ int board_late_init(void)
 
 	power_init();
 
-	setup_iomux_led();
 	setup_iomux_ata();
+	setup_iomux_usb();
 
+	if (machine_is_efikasb())
+		setenv("preboot", "usb reset ; setenv stdin usbkbd\0");
+
+	setup_iomux_led();
 	efikamx_toggle_led(EFIKAMX_LED_BLUE);
+
+	setup_iomux_i2c();
+
+	setup_efika_lcd();
 
 	return 0;
 }

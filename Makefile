@@ -1,5 +1,5 @@
 #
-# (C) Copyright 2000-2011
+# (C) Copyright 2000-2012
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 #
 # See file CREDITS for list of people who contributed to this
@@ -21,9 +21,9 @@
 # MA 02111-1307 USA
 #
 
-VERSION = 2011
-PATCHLEVEL = 09
-SUBLEVEL =
+VERSION = 2012
+PATCHLEVEL = 04
+SUBLEVEL = 01
 EXTRAVERSION =
 ifneq "$(SUBLEVEL)" ""
 U_BOOT_VERSION = $(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
@@ -142,9 +142,6 @@ unexport CDPATH
 SUBDIR_TOOLS = tools
 SUBDIR_EXAMPLES = examples/standalone examples/api
 SUBDIRS = $(SUBDIR_TOOLS)
-ifndef CONFIG_SANDBOX
-SUBDIRS += $(SUBDIR_EXAMPLES)
-endif
 
 .PHONY : $(SUBDIRS) $(VERSION_FILE) $(TIMESTAMP_FILE)
 
@@ -156,6 +153,10 @@ ifeq ($(obj)include/config.mk,$(wildcard $(obj)include/config.mk))
 all:
 sinclude $(obj)include/autoconf.mk.dep
 sinclude $(obj)include/autoconf.mk
+
+ifndef CONFIG_SANDBOX
+SUBDIRS += $(SUBDIR_EXAMPLES)
+endif
 
 # load ARCH, BOARD, and CPU configuration
 include $(obj)include/config.mk
@@ -173,6 +174,8 @@ include $(TOPDIR)/config.mk
 # that (or fail if absent).  Otherwise, search for a linker script in a
 # standard location.
 
+LDSCRIPT_MAKEFILE_DIR = $(dir $(LDSCRIPT))
+
 ifndef LDSCRIPT
 	#LDSCRIPT := $(TOPDIR)/board/$(BOARDDIR)/u-boot.lds.debug
 	ifdef CONFIG_SYS_LDSCRIPT
@@ -181,6 +184,7 @@ ifndef LDSCRIPT
 	endif
 endif
 
+# If there is no specified link script, we look in a number of places for it
 ifndef LDSCRIPT
 	ifeq ($(CONFIG_NAND_U_BOOT),y)
 		LDSCRIPT := $(TOPDIR)/board/$(BOARDDIR)/u-boot-nand.lds
@@ -193,6 +197,11 @@ ifndef LDSCRIPT
 	endif
 	ifeq ($(wildcard $(LDSCRIPT)),)
 		LDSCRIPT := $(TOPDIR)/$(CPUDIR)/u-boot.lds
+	endif
+	ifeq ($(wildcard $(LDSCRIPT)),)
+		LDSCRIPT := $(TOPDIR)/arch/$(ARCH)/cpu/u-boot.lds
+		# We don't expect a Makefile here
+		LDSCRIPT_MAKEFILE_DIR =
 	endif
 	ifeq ($(wildcard $(LDSCRIPT)),)
 $(error could not find linker script)
@@ -220,6 +229,9 @@ LIBS  = lib/libgeneric.o
 LIBS += lib/lzma/liblzma.o
 LIBS += lib/lzo/liblzo.o
 LIBS += lib/zlib/libz.o
+ifeq ($(CONFIG_TIZEN),y)
+LIBS += lib/tizen/libtizen.o
+endif
 LIBS += $(shell if [ -f board/$(VENDOR)/common/Makefile ]; then echo \
 	"board/$(VENDOR)/common/lib$(VENDOR).o"; fi)
 LIBS += $(CPUDIR)/lib$(CPU).o
@@ -228,6 +240,9 @@ LIBS += $(CPUDIR)/$(SOC)/lib$(SOC).o
 endif
 ifeq ($(CPU),ixp)
 LIBS += arch/arm/cpu/ixp/npe/libnpe.o
+endif
+ifeq ($(CONFIG_OF_EMBED),y)
+LIBS += dts/libdts.o
 endif
 LIBS += arch/$(ARCH)/lib/lib$(ARCH).o
 LIBS += fs/cramfs/libcramfs.o fs/fat/libfat.o fs/fdos/libfdos.o fs/jffs2/libjffs2.o \
@@ -273,12 +288,16 @@ LIBS += arch/powerpc/cpu/mpc8xxx/lib8xxx.o
 endif
 LIBS += drivers/rtc/librtc.o
 LIBS += drivers/serial/libserial.o
+ifeq ($(CONFIG_GENERIC_LPC_TPM),y)
+LIBS += drivers/tpm/libtpm.o
+endif
 LIBS += drivers/twserial/libtws.o
 LIBS += drivers/usb/eth/libusb_eth.o
 LIBS += drivers/usb/gadget/libusb_gadget.o
 LIBS += drivers/usb/host/libusb_host.o
 LIBS += drivers/usb/musb/libusb_musb.o
 LIBS += drivers/usb/phy/libusb_phy.o
+LIBS += drivers/usb/ulpi/libusb_ulpi.o
 LIBS += drivers/video/libvideo.o
 LIBS += drivers/watchdog/libwatchdog.o
 LIBS += common/libcommon.o
@@ -286,17 +305,21 @@ LIBS += lib/libfdt/libfdt.o
 LIBS += api/libapi.o
 LIBS += post/libpost.o
 
-ifeq ($(SOC),omap3)
+ifneq ($(CONFIG_AM33XX)$(CONFIG_OMAP34XX)$(CONFIG_OMAP44XX)$(CONFIG_OMAP54XX),)
 LIBS += $(CPUDIR)/omap-common/libomap-common.o
 endif
-ifeq ($(SOC),omap4)
-LIBS += $(CPUDIR)/omap-common/libomap-common.o
+
+ifeq ($(SOC),mx5)
+LIBS += $(CPUDIR)/imx-common/libimx-common.o
+endif
+ifeq ($(SOC),mx6)
+LIBS += $(CPUDIR)/imx-common/libimx-common.o
 endif
 
 ifeq ($(SOC),s5pc1xx)
 LIBS += $(CPUDIR)/s5p-common/libs5p-common.o
 endif
-ifeq ($(SOC),s5pc2xx)
+ifeq ($(SOC),exynos)
 LIBS += $(CPUDIR)/s5p-common/libs5p-common.o
 endif
 
@@ -314,7 +337,7 @@ else
 PLATFORM_LIBGCC = -L $(USE_PRIVATE_LIBGCC) -lgcc
 endif
 else
-PLATFORM_LIBGCC = -L $(shell dirname `$(CC) $(CFLAGS) -print-libgcc-file-name`) -lgcc
+PLATFORM_LIBGCC := -L $(shell dirname `$(CC) $(CFLAGS) -print-libgcc-file-name`) -lgcc
 endif
 PLATFORM_LIBS += $(PLATFORM_LIBGCC)
 export PLATFORM_LIBS
@@ -324,6 +347,7 @@ export PLATFORM_LIBS
 # on the fly.
 LDPPFLAGS += \
 	-include $(TOPDIR)/include/u-boot/u-boot.lds.h \
+	-DCPUDIR=$(CPUDIR) \
 	$(shell $(LD) --version | \
 	  sed -ne 's/GNU ld version \([0-9][0-9]*\)\.\([0-9][0-9]*\).*/-DLD_MAJOR=\1 -DLD_MINOR=\2/p')
 
@@ -354,10 +378,17 @@ ALL-y += $(obj)u-boot.srec $(obj)u-boot.bin $(obj)System.map
 ALL-$(CONFIG_NAND_U_BOOT) += $(obj)u-boot-nand.bin
 ALL-$(CONFIG_ONENAND_U_BOOT) += $(obj)u-boot-onenand.bin
 ONENAND_BIN ?= $(obj)onenand_ipl/onenand-ipl-2k.bin
-ALL-$(CONFIG_MMC_U_BOOT) += $(obj)mmc_spl/u-boot-mmc-spl.bin
 ALL-$(CONFIG_SPL) += $(obj)spl/u-boot-spl.bin
+ALL-$(CONFIG_OF_SEPARATE) += $(obj)u-boot.dtb $(obj)u-boot-dtb.bin
 
 all:		$(ALL-y) $(SUBDIR_EXAMPLES)
+
+$(obj)u-boot.dtb:	$(obj)u-boot
+		$(MAKE) -C dts binary
+		mv $(obj)dts/dt.dtb $@
+
+$(obj)u-boot-dtb.bin:	$(obj)u-boot.bin $(obj)u-boot.dtb
+		cat $^ >$@
 
 $(obj)u-boot.hex:	$(obj)u-boot
 		$(OBJCOPY) ${OBJCFLAGS} -O ihex $< $@
@@ -401,9 +432,29 @@ $(obj)u-boot.sha1:	$(obj)u-boot.bin
 $(obj)u-boot.dis:	$(obj)u-boot
 		$(OBJDUMP) -d $< > $@
 
-$(obj)u-boot.ubl:       $(obj)u-boot-nand.bin
+$(obj)u-boot.ubl:       $(obj)spl/u-boot-spl.bin $(obj)u-boot.bin
+		$(OBJCOPY) ${OBJCFLAGS} --pad-to=$(PAD_TO) -O binary $(obj)spl/u-boot-spl $(obj)spl/u-boot-spl-pad.bin
+		cat $(obj)spl/u-boot-spl-pad.bin $(obj)u-boot.bin > $(obj)u-boot-ubl.bin
 		$(obj)tools/mkimage -n $(UBL_CONFIG) -T ublimage \
-		-e $(CONFIG_SYS_TEXT_BASE) -d $< $@
+		-e $(CONFIG_SYS_TEXT_BASE) -d $(obj)u-boot-ubl.bin $(obj)u-boot.ubl
+		rm $(obj)u-boot-ubl.bin
+		rm $(obj)spl/u-boot-spl-pad.bin
+
+$(obj)u-boot.ais:       $(obj)spl/u-boot-spl.bin $(obj)u-boot.bin
+		$(obj)tools/mkimage -s -n /dev/null -T aisimage \
+			-e $(CONFIG_SPL_TEXT_BASE) \
+			-d $(obj)spl/u-boot-spl.bin \
+			$(obj)spl/u-boot-spl.ais
+		$(OBJCOPY) ${OBJCFLAGS} -I binary \
+			--pad-to=$(CONFIG_SPL_MAX_SIZE) -O binary \
+			$(obj)spl/u-boot-spl.ais $(obj)spl/u-boot-spl-pad.ais
+		cat $(obj)spl/u-boot-spl-pad.ais $(obj)u-boot.bin > \
+			$(obj)u-boot.ais
+		rm $(obj)spl/u-boot-spl{,-pad}.ais
+
+$(obj)u-boot.sb:       $(obj)u-boot.bin $(obj)spl/u-boot-spl.bin
+		elftosb -zdf imx28 -c $(TOPDIR)/board/$(BOARDDIR)/u-boot.bd \
+			-o $(obj)u-boot.sb
 
 ifeq ($(CONFIG_SANDBOX),y)
 GEN_UBOOT = \
@@ -462,12 +513,7 @@ onenand_ipl:	$(TIMESTAMP_FILE) $(VERSION_FILE) $(obj)include/autoconf.mk
 $(obj)u-boot-onenand.bin:	onenand_ipl $(obj)u-boot.bin
 		cat $(ONENAND_BIN) $(obj)u-boot.bin > $(obj)u-boot-onenand.bin
 
-mmc_spl:	$(TIMESTAMP_FILE) $(VERSION_FILE) depend
-		$(MAKE) -C mmc_spl/board/$(BOARDDIR) all
-
-$(obj)mmc_spl/u-boot-mmc-spl.bin:	mmc_spl
-
-$(obj)spl/u-boot-spl.bin:		depend
+$(obj)spl/u-boot-spl.bin:	$(SUBDIR_TOOLS) depend
 		$(MAKE) -C spl all
 
 updater:
@@ -479,7 +525,7 @@ depend dep:	$(TIMESTAMP_FILE) $(VERSION_FILE) \
 		$(obj)include/autoconf.mk \
 		$(obj)include/generated/generic-asm-offsets.h \
 		$(obj)include/generated/asm-offsets.h
-		for dir in $(SUBDIRS) $(CPUDIR) $(dir $(LDSCRIPT)) ; do \
+		for dir in $(SUBDIRS) $(CPUDIR) $(LDSCRIPT_MAKEFILE_DIR) ; do \
 			$(MAKE) -C $$dir _depend ; done
 
 TAG_SUBDIRS = $(SUBDIRS)
@@ -488,6 +534,11 @@ TAG_SUBDIRS += include
 
 FIND := find
 FINDFLAGS := -L
+
+checkstack:
+		$(CROSS_COMPILE)objdump -d $(obj)u-boot \
+			`$(FIND) $(obj) -name u-boot-spl -print` | \
+			perl $(src)tools/checkstack.pl $(ARCH)
 
 tags ctags:
 		ctags -w -o $(obj)ctags `$(FIND) $(FINDFLAGS) $(TAG_SUBDIRS) \
@@ -508,6 +559,13 @@ SYSTEM_MAP = \
 $(obj)System.map:	$(obj)u-boot
 		@$(call SYSTEM_MAP,$<) > $(obj)System.map
 
+checkthumb:
+	@if test $(call cc-version) -lt 0404; then \
+		echo -n '*** Your GCC does not produce working '; \
+		echo 'binaries in THUMB mode.'; \
+		echo '*** Your board is configured for THUMB mode.'; \
+		false; \
+	fi
 #
 # Auto-generate the autoconf.mk file (which is included by all makefiles)
 #
@@ -615,7 +673,7 @@ unconfig:
 
 sinclude $(obj).boards.depend
 $(obj).boards.depend:	boards.cfg
-	awk '(NF && $$1 !~ /^#/) { print $$1 ": " $$1 "_config; $$(MAKE)" }' $< > $@
+	@awk '(NF && $$1 !~ /^#/) { print $$1 ": " $$1 "_config; $$(MAKE)" }' $< > $@
 
 #
 # Functions to generate common board directory names
@@ -623,156 +681,9 @@ $(obj).boards.depend:	boards.cfg
 lcname	= $(shell echo $(1) | sed -e 's/\(.*\)_config/\L\1/')
 ucname	= $(shell echo $(1) | sed -e 's/\(.*\)_config/\U\1/')
 
-#########################################################################
-## Coldfire
-#########################################################################
-M52277EVB_config \
-M52277EVB_spansion_config \
-M52277EVB_stmicro_config :	unconfig
-	@mkdir -p $(obj)include
-	@mkdir -p $(obj)board/freescale/m52277evb
-	@case "$@" in \
-	M52277EVB_config)		FLASH=SPANSION;; \
-	M52277EVB_spansion_config)	FLASH=SPANSION;; \
-	M52277EVB_stmicro_config)	FLASH=STMICRO;; \
-	esac; \
-	if [ "$${FLASH}" = "SPANSION" ] ; then \
-		echo "#define CONFIG_SYS_SPANSION_BOOT"	>> $(obj)include/config.h ; \
-		echo "CONFIG_SYS_TEXT_BASE = 0x00000000" > $(obj)board/freescale/m52277evb/config.tmp ; \
-	fi; \
-	if [ "$${FLASH}" = "STMICRO" ] ; then \
-		echo "#define CONFIG_CF_SBF"	>> $(obj)include/config.h ; \
-		echo "#define CONFIG_SYS_STMICRO_BOOT"	>> $(obj)include/config.h ; \
-		echo "CONFIG_SYS_TEXT_BASE = 0x43E00000" > $(obj)board/freescale/m52277evb/config.tmp ; \
-	fi
-	@$(MKCONFIG) -n $@ -a M52277EVB m68k mcf5227x m52277evb freescale
-
-M5235EVB_config \
-M5235EVB_Flash16_config \
-M5235EVB_Flash32_config:	unconfig
-	@mkdir -p $(obj)include
-	@mkdir -p $(obj)board/freescale/m5235evb
-	@case "$@" in \
-	M5235EVB_config)		FLASH=16;; \
-	M5235EVB_Flash16_config)	FLASH=16;; \
-	M5235EVB_Flash32_config)	FLASH=32;; \
-	esac; \
-	if [ "$${FLASH}" != "16" ] ; then \
-		echo "#define NORFLASH_PS32BIT	1" >> $(obj)include/config.h ; \
-		echo "CONFIG_SYS_TEXT_BASE = 0xFFC00000" > $(obj)board/freescale/m5235evb/config.tmp ; \
-	else \
-		echo "CONFIG_SYS_TEXT_BASE = 0xFFE00000" > $(obj)board/freescale/m5235evb/config.tmp ; \
-	fi
-	@$(MKCONFIG) -n $@ -a M5235EVB m68k mcf523x m5235evb freescale
-
-EB+MCF-EV123_config :		unconfig
-	@mkdir -p $(obj)board/BuS/EB+MCF-EV123
-	@echo "CONFIG_SYS_TEXT_BASE = 0xFFE00000"|tee $(obj)board/BuS/EB+MCF-EV123/textbase.mk
-	@$(MKCONFIG) -n $@ EB+MCF-EV123 m68k mcf52x2 EB+MCF-EV123 BuS
-
-EB+MCF-EV123_internal_config :	unconfig
-	@mkdir -p $(obj)board/BuS/EB+MCF-EV123
-	@echo "CONFIG_SYS_TEXT_BASE = 0xF0000000"|tee $(obj)board/BuS/EB+MCF-EV123/textbase.mk
-	@$(MKCONFIG) -n $@ EB+MCF-EV123 m68k mcf52x2 EB+MCF-EV123 BuS
-
-M54451EVB_config \
-M54451EVB_stmicro_config :	unconfig
-	@mkdir -p $(obj)include
-	@mkdir -p $(obj)board/freescale/m54451evb
-	@case "$@" in \
-	M54451EVB_config)		FLASH=NOR;; \
-	M54451EVB_stmicro_config)	FLASH=STMICRO;; \
-	esac; \
-	if [ "$${FLASH}" = "NOR" ] ; then \
-		echo "CONFIG_SYS_TEXT_BASE = 0x00000000" > $(obj)board/freescale/m54451evb/config.tmp ; \
-	fi; \
-	if [ "$${FLASH}" = "STMICRO" ] ; then \
-		echo "#define CONFIG_CF_SBF"	>> $(obj)include/config.h ; \
-		echo "#define CONFIG_SYS_STMICRO_BOOT"	>> $(obj)include/config.h ; \
-		echo "CONFIG_SYS_TEXT_BASE = 0x47E00000" > $(obj)board/freescale/m54451evb/config.tmp ; \
-	fi; \
-	echo "#define CONFIG_SYS_INPUT_CLKSRC 24000000" >> $(obj)include/config.h ;
-	@$(MKCONFIG) -n $@ -a M54451EVB m68k mcf5445x m54451evb freescale
-
-M54455EVB_config \
-M54455EVB_atmel_config \
-M54455EVB_intel_config \
-M54455EVB_a33_config \
-M54455EVB_a66_config \
-M54455EVB_i33_config \
-M54455EVB_i66_config \
-M54455EVB_stm33_config :	unconfig
-	@mkdir -p $(obj)include
-	@mkdir -p $(obj)board/freescale/m54455evb
-	@case "$@" in \
-	M54455EVB_config)		FLASH=ATMEL; FREQ=33333333;; \
-	M54455EVB_atmel_config)		FLASH=ATMEL; FREQ=33333333;; \
-	M54455EVB_intel_config)		FLASH=INTEL; FREQ=33333333;; \
-	M54455EVB_a33_config)		FLASH=ATMEL; FREQ=33333333;; \
-	M54455EVB_a66_config)		FLASH=ATMEL; FREQ=66666666;; \
-	M54455EVB_i33_config)		FLASH=INTEL; FREQ=33333333;; \
-	M54455EVB_i66_config)		FLASH=INTEL; FREQ=66666666;; \
-	M54455EVB_stm33_config)		FLASH=STMICRO; FREQ=33333333;; \
-	esac; \
-	if [ "$${FLASH}" = "INTEL" ] ; then \
-		echo "#define CONFIG_SYS_INTEL_BOOT" >> $(obj)include/config.h ; \
-		echo "CONFIG_SYS_TEXT_BASE = 0x00000000" > $(obj)board/freescale/m54455evb/config.tmp ; \
-	fi; \
-	if [ "$${FLASH}" = "ATMEL" ] ; then \
-		echo "#define CONFIG_SYS_ATMEL_BOOT"	>> $(obj)include/config.h ; \
-		echo "CONFIG_SYS_TEXT_BASE = 0x04000000" > $(obj)board/freescale/m54455evb/config.tmp ; \
-	fi; \
-	if [ "$${FLASH}" = "STMICRO" ] ; then \
-		echo "#define CONFIG_CF_SBF"	>> $(obj)include/config.h ; \
-		echo "#define CONFIG_SYS_STMICRO_BOOT"	>> $(obj)include/config.h ; \
-		echo "CONFIG_SYS_TEXT_BASE = 0x4FE00000" > $(obj)board/freescale/m54455evb/config.tmp ; \
-	fi; \
-	echo "#define CONFIG_SYS_INPUT_CLKSRC $${FREQ}" >> $(obj)include/config.h ; \
-	$(XECHO) "... with $${FREQ}Hz input clock"
-	@$(MKCONFIG) -n $@ -a M54455EVB m68k mcf5445x m54455evb freescale
-
 #========================================================================
 # ARM
 #========================================================================
-
-xtract_omap1610xxx = $(subst _cs0boot,,$(subst _cs3boot,,$(subst _cs_autoboot,,$(subst _config,,$1))))
-
-omap1610inn_config \
-omap1610inn_cs0boot_config \
-omap1610inn_cs3boot_config \
-omap1610inn_cs_autoboot_config \
-omap1610h2_config \
-omap1610h2_cs0boot_config \
-omap1610h2_cs3boot_config \
-omap1610h2_cs_autoboot_config:	unconfig
-	@mkdir -p $(obj)include
-	@if [ "$(findstring _cs0boot_, $@)" ] ; then \
-		echo "#define CONFIG_CS0_BOOT" >> .$(obj)include/config.h ; \
-	elif [ "$(findstring _cs_autoboot_, $@)" ] ; then \
-		echo "#define CONFIG_CS_AUTOBOOT" >> $(obj)include/config.h ; \
-	else \
-		echo "#define CONFIG_CS3_BOOT" >> $(obj)include/config.h ; \
-	fi;
-	@$(MKCONFIG) -n $@ -a $(call xtract_omap1610xxx,$@) arm arm926ejs omap1610inn ti omap
-
-omap730p2_config \
-omap730p2_cs0boot_config \
-omap730p2_cs3boot_config :	unconfig
-	@mkdir -p $(obj)include
-	@if [ "$(findstring _cs0boot_, $@)" ] ; then \
-		echo "#define CONFIG_CS0_BOOT" >> $(obj)include/config.h ; \
-	else \
-		echo "#define CONFIG_CS3_BOOT" >> $(obj)include/config.h ; \
-	fi;
-	@$(MKCONFIG) -n $@ -a omap730p2 arm arm926ejs omap730p2 ti omap
-
-spear300_config \
-spear310_config \
-spear320_config :	unconfig
-	@$(MKCONFIG) -n $@ -t $@ spear3xx arm arm926ejs $(@:_config=) spear spear
-
-spear600_config :	unconfig
-	@$(MKCONFIG) -n $@ -t $@ spear6xx arm arm926ejs $(@:_config=) spear spear
 
 SX1_stdout_serial_config \
 SX1_config:		unconfig
@@ -783,28 +694,6 @@ SX1_config:		unconfig
 		echo "#define CONFIG_STDOUT_USBTTY" >> $(obj)include/config.h ; \
 	fi;
 	@$(MKCONFIG) -n $@ SX1 arm arm925t sx1
-
-#########################################################################
-## XScale Systems
-#########################################################################
-
-pdnb3_config \
-scpu_config:	unconfig
-	@mkdir -p $(obj)include
-	@if [ "$(findstring scpu_,$@)" ] ; then \
-		echo "#define CONFIG_SCPU"	>>$(obj)include/config.h ; \
-	fi
-	@$(MKCONFIG) -n $@ -a pdnb3 arm ixp pdnb3 prodrive
-
-#########################################################################
-## ARM1136 Systems
-#########################################################################
-
-apollon_config		: unconfig
-	@mkdir -p $(obj)include
-	@echo "#define CONFIG_ONENAND_U_BOOT" > $(obj)include/config.h
-	@echo "CONFIG_ONENAND_U_BOOT = y" >> $(obj)include/config.mk
-	@$(MKCONFIG) $@ arm arm1136 apollon - omap24xx
 
 #########################################################################
 ## ARM1176 Systems
@@ -843,7 +732,8 @@ clean:
 	       $(obj)tools/envcrc					  \
 	       $(obj)tools/gdb/{astest,gdbcont,gdbsend}			  \
 	       $(obj)tools/gen_eth_addr    $(obj)tools/img2srec		  \
-	       $(obj)tools/mkimage	   $(obj)tools/mpc86x_clk	  \
+	       $(obj)tools/mk{env,}image   $(obj)tools/mpc86x_clk	  \
+	       $(obj)tools/mk{smdk5250,}spl				  \
 	       $(obj)tools/ncb		   $(obj)tools/ubsha1
 	@rm -f $(obj)board/cray/L1/{bootscript.c,bootscript.image}	  \
 	       $(obj)board/matrix_vision/*/bootscript.img		  \
@@ -852,40 +742,47 @@ clean:
 	       $(obj)arch/blackfin/cpu/bootrom-asm-offsets.[chs]	  \
 	       $(obj)arch/blackfin/cpu/init.{lds,elf}
 	@rm -f $(obj)include/bmp_logo.h
+	@rm -f $(obj)include/bmp_logo_data.h
 	@rm -f $(obj)lib/asm-offsets.s
 	@rm -f $(obj)include/generated/asm-offsets.h
 	@rm -f $(obj)$(CPUDIR)/$(SOC)/asm-offsets.s
 	@rm -f $(obj)nand_spl/{u-boot.lds,u-boot-nand_spl.lds,u-boot-spl,u-boot-spl.map,System.map}
 	@rm -f $(obj)onenand_ipl/onenand-{ipl,ipl.bin,ipl.map}
-	@rm -f $(obj)mmc_spl/{u-boot.lds,u-boot-spl,u-boot-spl.map,u-boot-spl.bin,u-boot-mmc-spl.bin}
 	@rm -f $(ONENAND_BIN)
 	@rm -f $(obj)onenand_ipl/u-boot.lds
 	@rm -f $(obj)spl/{u-boot-spl,u-boot-spl.bin,u-boot-spl.lds,u-boot-spl.map}
 	@rm -f $(obj)MLO
 	@rm -f $(TIMESTAMP_FILE) $(VERSION_FILE)
 	@find $(OBJTREE) -type f \
-		\( -name 'core' -o -name '*.bak' -o -name '*~' \
+		\( -name 'core' -o -name '*.bak' -o -name '*~' -o -name '*.su' \
 		-o -name '*.o'	-o -name '*.a' -o -name '*.exe'	\) -print \
 		| xargs rm -f
 
-clobber:	clean
-	@find $(OBJTREE) -type f \( -name '*.depend*' \
-		-o -name '*.srec' -o -name '*.bin' -o -name u-boot.img \) \
-		-print0 \
-		| xargs -0 rm -f
+# Removes everything not needed for testing u-boot
+tidy:	clean
+	@find $(OBJTREE) -type f \( -name '*.depend*' \) -print | xargs rm -f
+
+clobber:	tidy
+	@find $(OBJTREE) -type f \( -name '*.srec' \
+		-o -name '*.bin' -o -name u-boot.img \) \
+		-print0 | xargs -0 rm -f
 	@rm -f $(OBJS) $(obj)*.bak $(obj)ctags $(obj)etags $(obj)TAGS \
 		$(obj)cscope.* $(obj)*.*~
 	@rm -f $(obj)u-boot $(obj)u-boot.map $(obj)u-boot.hex $(ALL-y)
 	@rm -f $(obj)u-boot.kwb
 	@rm -f $(obj)u-boot.imx
 	@rm -f $(obj)u-boot.ubl
-	@rm -f $(obj)tools/{env/crc32.c,inca-swap-bytes}
+	@rm -f $(obj)u-boot.ais
+	@rm -f $(obj)u-boot.dtb
+	@rm -f $(obj)u-boot.sb
+	@rm -f $(obj)tools/inca-swap-bytes
 	@rm -f $(obj)arch/powerpc/cpu/mpc824x/bedbug_603e.c
+	@rm -f $(obj)arch/powerpc/cpu/mpc83xx/ddr-gen?.c
 	@rm -fr $(obj)include/asm/proc $(obj)include/asm/arch $(obj)include/asm
 	@rm -fr $(obj)include/generated
 	@[ ! -d $(obj)nand_spl ] || find $(obj)nand_spl -name "*" -type l -print | xargs rm -f
 	@[ ! -d $(obj)onenand_ipl ] || find $(obj)onenand_ipl -name "*" -type l -print | xargs rm -f
-	@[ ! -d $(obj)mmc_spl ] || find $(obj)mmc_spl -name "*" -type l -print | xargs rm -f
+	@rm -f $(obj)dts/*.tmp
 
 mrproper \
 distclean:	clobber unconfig

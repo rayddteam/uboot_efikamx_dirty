@@ -34,12 +34,14 @@
 #define SYSCTL_INITA		0x08000000
 #define SYSCTL_TIMEOUT_MASK	0x000f0000
 #define SYSCTL_CLOCK_MASK	0x0000fff0
-#define SYSCTL_RSTA		0x01000000
 #define SYSCTL_CKEN		0x00000008
+#define SYSCTL_SDCLKEN		SYSCTL_CKEN
 #define SYSCTL_PEREN		0x00000004
 #define SYSCTL_HCKEN		0x00000002
 #define SYSCTL_IPGEN		0x00000001
 #define SYSCTL_RSTA		0x01000000
+#define SYSCTL_RSTC		0x02000000
+#define SYSCTL_RSTD		0x04000000
 
 #define IRQSTAT			0x0002e030
 #define IRQSTAT_DMAE		(0x10000000)
@@ -85,12 +87,14 @@
 #define IRQSTATEN_CC		(0x00000001)
 
 #define PRSSTAT			0x0002e024
+#define PRSSTAT_DAT0		(0x01000000)
 #define PRSSTAT_CLSL		(0x00800000)
 #define PRSSTAT_WPSPL		(0x00080000)
 #define PRSSTAT_CDPL		(0x00040000)
 #define PRSSTAT_CINS		(0x00010000)
 #define PRSSTAT_BREN		(0x00000800)
 #define PRSSTAT_BWEN		(0x00000400)
+#define PRSSTAT_SDSTB		(0x00000008)
 #define PRSSTAT_DLA		(0x00000004)
 #define PRSSTAT_CICHB		(0x00000002)
 #define PRSSTAT_CIDHB		(0x00000001)
@@ -165,7 +169,7 @@
 
 struct fsl_esdhc_cfg {
 	u32	esdhc_base;
-	u32	no_snoop;
+	u32	sdhc_clk;
 };
 
 /* Select the correct accessors depending on endianess */
@@ -185,7 +189,8 @@ struct fsl_esdhc_cfg {
 #error "Endianess is not defined: please fix to continue"
 #endif
 
-#ifdef CONFIG_FSL_ESDHC
+//#ifdef CONFIG_FSL_ESDHC
+#if defined(CONFIG_FSL_ESDHC) || defined(CONFIG_IMX_MMC)
 int fsl_esdhc_mmc_init(bd_t *bis);
 int fsl_esdhc_initialize(bd_t *bis, struct fsl_esdhc_cfg *cfg);
 void fdt_fixup_esdhc(void *blob, bd_t *bd);

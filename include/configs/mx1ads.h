@@ -45,7 +45,7 @@
 /* #define _CONFIG_UART2 */		/* internal uart 2 */
 /* #define CONFIG_SILENT_CONSOLE */	/* use this to disable output */
 
-#define BOARD_LATE_INIT		1
+#define CONFIG_BOARD_LATE_INIT
 #define USE_920T_MMU		1
 
 #if 0
@@ -109,7 +109,6 @@
  */
 
 #define CONFIG_SYS_HUSH_PARSER		1
-#define CONFIG_SYS_PROMPT_HUSH_PS2	"> "
 
 #define CONFIG_SYS_LONGHELP				/* undef to save memory		*/
 
@@ -132,9 +131,6 @@
 /*#define	CONFIG_SYS_HZ			1000 */
 #define CONFIG_SYS_HZ			3686400
 #define CONFIG_SYS_CPUSPEED		0x141
-
-/* valid baudrates */
-#define CONFIG_SYS_BAUDRATE_TABLE	{ 9600, 19200, 38400, 57600, 115200 }
 
 /*-----------------------------------------------------------------------
  * Stack sizes

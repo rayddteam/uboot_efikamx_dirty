@@ -11,7 +11,7 @@
  * Added 16-bit nand support
  * (C) 2004 Texas Instruments
  *
- * Copyright 2010 Freescale Semiconductor
+ * Copyright 2010, 2012 Freescale Semiconductor
  * The portions of this file whose copyright is held by Freescale and which
  * are not considered a derived work of GPL v2-only code may be distributed
  * and/or modified under the terms of the GNU General Public License as
@@ -48,7 +48,7 @@ static int nand_dump(nand_info_t *nand, ulong off, int only_oob, int repeat)
 
 	last = off;
 
-	datbuf = malloc(nand->writesize + nand->oobsize);
+	datbuf = malloc(nand->writesize);
 	oobbuf = malloc(nand->oobsize);
 	if (!datbuf || !oobbuf) {
 		puts("No memory for page buffer\n");
@@ -59,7 +59,7 @@ static int nand_dump(nand_info_t *nand, ulong off, int only_oob, int repeat)
 	struct mtd_oob_ops ops;
 	memset(&ops, 0, sizeof(ops));
 	ops.datbuf = datbuf;
-	ops.oobbuf = oobbuf; /* must exist, but oob data will be appended to ops.datbuf */
+	ops.oobbuf = oobbuf;
 	ops.len = nand->writesize;
 	ops.ooblen = nand->oobsize;
 	ops.mode = MTD_OOB_RAW;
@@ -85,6 +85,7 @@ static int nand_dump(nand_info_t *nand, ulong off, int only_oob, int repeat)
 	}
 	puts("OOB:\n");
 	i = nand->oobsize >> 3;
+	p = oobbuf;
 	while (i--) {
 		printf("\t%02x %02x %02x %02x %02x %02x %02x %02x\n",
 		       p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
@@ -190,7 +191,7 @@ static int arg_off_size(int argc, char *const argv[], int *idx,
 			loff_t *off, loff_t *size)
 {
 	int ret;
-	loff_t maxsize;
+	loff_t maxsize = 0;
 
 	if (argc == 0) {
 		*off = 0;
@@ -357,7 +358,7 @@ int do_nand_env_oob(cmd_tbl_t *cmdtp, int argc, char *const argv[])
 	return ret;
 
 usage:
-	return cmd_usage(cmdtp);
+	return CMD_RET_USAGE;
 }
 
 #endif
@@ -387,6 +388,39 @@ static void nand_print_and_set_info(int idx)
 
 	sprintf(buf, "%x", nand->erasesize);
 	setenv("nand_erasesize", buf);
+}
+
+static int raw_access(nand_info_t *nand, ulong addr, loff_t off, ulong count,
+			int read)
+{
+	int ret = 0;
+
+	while (count--) {
+		/* Raw access */
+		mtd_oob_ops_t ops = {
+			.datbuf = (u8 *)addr,
+			.oobbuf = ((u8 *)addr) + nand->writesize,
+			.len = nand->writesize,
+			.ooblen = nand->oobsize,
+			.mode = MTD_OOB_RAW
+		};
+
+		if (read)
+			ret = nand->read_oob(nand, off, &ops);
+		else
+			ret = nand->write_oob(nand, off, &ops);
+
+		if (ret) {
+			printf("%s: error at offset %llx, ret %d\n",
+				__func__, (long long)off, ret);
+			break;
+		}
+
+		addr += nand->writesize + nand->oobsize;
+		off += nand->writesize;
+	}
+
+	return ret;
 }
 
 int do_nand(cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
@@ -567,7 +601,9 @@ int do_nand(cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 
 	if (strncmp(cmd, "read", 4) == 0 || strncmp(cmd, "write", 5) == 0) {
 		size_t rwsize;
+		ulong pagecount = 1;
 		int read;
+		int raw;
 
 		if (argc < 4)
 			goto usage;
@@ -576,13 +612,36 @@ int do_nand(cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 
 		read = strncmp(cmd, "read", 4) == 0; /* 1 = read, 0 = write */
 		printf("\nNAND %s: ", read ? "read" : "write");
-		if (arg_off_size(argc - 3, argv + 3, &dev, &off, &size) != 0)
-			return 1;
 
 		nand = &nand_info[dev];
-		rwsize = size;
 
 		s = strchr(cmd, '.');
+
+		if (s && !strcmp(s, ".raw")) {
+			raw = 1;
+
+			if (arg_off(argv[3], &dev, &off, &size))
+				return 1;
+
+			if (argc > 4 && !str2long(argv[4], &pagecount)) {
+				printf("'%s' is not a number\n", argv[4]);
+				return 1;
+			}
+
+			if (pagecount * nand->writesize > size) {
+				puts("Size exceeds partition or device limit\n");
+				return -1;
+			}
+
+			rwsize = pagecount * (nand->writesize + nand->oobsize);
+		} else {
+			if (arg_off_size(argc - 3, argv + 3, &dev,
+						&off, &size) != 0)
+				return 1;
+
+			rwsize = size;
+		}
+
 		if (!s || !strcmp(s, ".jffs2") ||
 		    !strcmp(s, ".e") || !strcmp(s, ".i")) {
 			if (read)
@@ -608,7 +667,8 @@ int do_nand(cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 				return 1;
 			}
 			ret = nand_write_skip_bad(nand, off, &rwsize,
-						(u_char *)addr, WITH_YAFFS_OOB);
+						(u_char *)addr,
+						WITH_INLINE_OOB);
 #endif
 		} else if (!strcmp(s, ".oob")) {
 			/* out-of-band data */
@@ -622,22 +682,8 @@ int do_nand(cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 				ret = nand->read_oob(nand, off, &ops);
 			else
 				ret = nand->write_oob(nand, off, &ops);
-		} else if (!strcmp(s, ".raw")) {
-			/* Raw access */
-			mtd_oob_ops_t ops = {
-				.datbuf = (u8 *)addr,
-				.oobbuf = ((u8 *)addr) + nand->writesize,
-				.len = nand->writesize,
-				.ooblen = nand->oobsize,
-				.mode = MTD_OOB_RAW
-			};
-
-			rwsize = nand->writesize + nand->oobsize;
-
-			if (read)
-				ret = nand->read_oob(nand, off, &ops);
-			else
-				ret = nand->write_oob(nand, off, &ops);
+		} else if (raw) {
+			ret = raw_access(nand, addr, off, pagecount, read);
 		} else {
 			printf("Unknown nand command suffix '%s'.\n", s);
 			return 1;
@@ -719,7 +765,7 @@ int do_nand(cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 #endif
 
 usage:
-	return cmd_usage(cmdtp);
+	return CMD_RET_USAGE;
 }
 
 U_BOOT_CMD(
@@ -731,9 +777,9 @@ U_BOOT_CMD(
 	"nand write - addr off|partition size\n"
 	"    read/write 'size' bytes starting at offset 'off'\n"
 	"    to/from memory address 'addr', skipping bad blocks.\n"
-	"nand read.raw - addr off|partition\n"
-	"nand write.raw - addr off|partition\n"
-	"    Use read.raw/write.raw to avoid ECC and access the page as-is.\n"
+	"nand read.raw - addr off|partition [count]\n"
+	"nand write.raw - addr off|partition [count]\n"
+	"    Use read.raw/write.raw to avoid ECC and access the flash as-is.\n"
 #ifdef CONFIG_CMD_NAND_TRIMFFS
 	"nand write.trimffs - addr off|partition size\n"
 	"    write 'size' bytes starting at offset 'off' from memory address\n"
@@ -787,7 +833,7 @@ static int nand_load_image(cmd_tbl_t *cmdtp, nand_info_t *nand,
 	if (s != NULL &&
 	    (strcmp(s, ".jffs2") && strcmp(s, ".e") && strcmp(s, ".i"))) {
 		printf("Unknown nand load suffix '%s'\n", s);
-		show_boot_progress(-53);
+		bootstage_error(BOOTSTAGE_ID_NAND_SUFFIX);
 		return 1;
 	}
 
@@ -797,16 +843,16 @@ static int nand_load_image(cmd_tbl_t *cmdtp, nand_info_t *nand,
 	r = nand_read_skip_bad(nand, offset, &cnt, (u_char *) addr);
 	if (r) {
 		puts("** Read error\n");
-		show_boot_progress (-56);
+		bootstage_error(BOOTSTAGE_ID_NAND_HDR_READ);
 		return 1;
 	}
-	show_boot_progress (56);
+	bootstage_mark(BOOTSTAGE_ID_NAND_HDR_READ);
 
 	switch (genimg_get_format ((void *)addr)) {
 	case IMAGE_FORMAT_LEGACY:
 		hdr = (image_header_t *)addr;
 
-		show_boot_progress (57);
+		bootstage_mark(BOOTSTAGE_ID_NAND_TYPE);
 		image_print_contents (hdr);
 
 		cnt = image_get_image_size (hdr);
@@ -820,29 +866,29 @@ static int nand_load_image(cmd_tbl_t *cmdtp, nand_info_t *nand,
 		break;
 #endif
 	default:
-		show_boot_progress (-57);
+		bootstage_error(BOOTSTAGE_ID_NAND_TYPE);
 		puts ("** Unknown image type\n");
 		return 1;
 	}
-	show_boot_progress (57);
+	bootstage_mark(BOOTSTAGE_ID_NAND_TYPE);
 
 	r = nand_read_skip_bad(nand, offset, &cnt, (u_char *) addr);
 	if (r) {
 		puts("** Read error\n");
-		show_boot_progress (-58);
+		bootstage_error(BOOTSTAGE_ID_NAND_READ);
 		return 1;
 	}
-	show_boot_progress (58);
+	bootstage_mark(BOOTSTAGE_ID_NAND_READ);
 
 #if defined(CONFIG_FIT)
 	/* This cannot be done earlier, we need complete FIT image in RAM first */
 	if (genimg_get_format ((void *)addr) == IMAGE_FORMAT_FIT) {
 		if (!fit_check_format (fit_hdr)) {
-			show_boot_progress (-150);
+			bootstage_error(BOOTSTAGE_ID_NAND_FIT_READ);
 			puts ("** Bad FIT image format\n");
 			return 1;
 		}
-		show_boot_progress (151);
+		bootstage_mark(BOOTSTAGE_ID_NAND_FIT_READ_OK);
 		fit_print_contents (fit_hdr);
 	}
 #endif
@@ -884,7 +930,7 @@ int do_nandboot(cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 	}
 #endif
 
-	show_boot_progress(52);
+	bootstage_mark(BOOTSTAGE_ID_NAND_PART);
 	switch (argc) {
 	case 1:
 		addr = CONFIG_SYS_LOAD_ADDR;
@@ -907,26 +953,26 @@ int do_nandboot(cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 #if defined(CONFIG_CMD_MTDPARTS)
 usage:
 #endif
-		show_boot_progress(-53);
-		return cmd_usage(cmdtp);
+		bootstage_error(BOOTSTAGE_ID_NAND_SUFFIX);
+		return CMD_RET_USAGE;
 	}
+	bootstage_mark(BOOTSTAGE_ID_NAND_SUFFIX);
 
-	show_boot_progress(53);
 	if (!boot_device) {
 		puts("\n** No boot device **\n");
-		show_boot_progress(-54);
+		bootstage_error(BOOTSTAGE_ID_NAND_BOOT_DEVICE);
 		return 1;
 	}
-	show_boot_progress(54);
+	bootstage_mark(BOOTSTAGE_ID_NAND_BOOT_DEVICE);
 
 	idx = simple_strtoul(boot_device, NULL, 16);
 
 	if (idx < 0 || idx >= CONFIG_SYS_MAX_NAND_DEVICE || !nand_info[idx].name) {
 		printf("\n** Device %d not available\n", idx);
-		show_boot_progress(-55);
+		bootstage_error(BOOTSTAGE_ID_NAND_AVAILABLE);
 		return 1;
 	}
-	show_boot_progress(55);
+	bootstage_mark(BOOTSTAGE_ID_NAND_AVAILABLE);
 
 	return nand_load_image(cmdtp, &nand_info[idx], offset, addr, argv[0]);
 }

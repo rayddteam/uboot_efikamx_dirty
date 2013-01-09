@@ -108,7 +108,7 @@ extern unsigned long get_clock_freq(void);
 #define CONFIG_SYS_CCSRBAR		0xe0000000
 #define CONFIG_SYS_CCSRBAR_PHYS_LOW	CONFIG_SYS_CCSRBAR
 
-#if defined(CONFIG_RAMBOOT_NAND) && !defined(CONFIG_NAND_SPL)
+#if defined(CONFIG_NAND_SPL)
 #define CONFIG_SYS_CCSR_DO_NOT_RELOCATE
 #endif
 
@@ -292,7 +292,6 @@ extern unsigned long get_clock_freq(void);
 /* Use the HUSH parser*/
 #define CONFIG_SYS_HUSH_PARSER
 #ifdef  CONFIG_SYS_HUSH_PARSER
-#define CONFIG_SYS_PROMPT_HUSH_PS2 "> "
 #endif
 
 /* pass open firmware flat tree */
@@ -510,7 +509,8 @@ extern unsigned long get_clock_freq(void);
 #define CONFIG_SYS_LOADS_BAUD_CHANGE	1	/* allow baudrate change */
 
 /* QE microcode/firmware address */
-#define CONFIG_SYS_QE_FW_ADDR	0xfff00000
+#define CONFIG_SYS_QE_FMAN_FW_IN_NOR
+#define CONFIG_SYS_QE_FMAN_FW_ADDR	0xfff00000
 
 /*
  * BOOTP options

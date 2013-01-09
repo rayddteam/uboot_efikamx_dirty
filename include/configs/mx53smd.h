@@ -34,7 +34,6 @@
 #include <asm/arch/imx-regs.h>
 
 #define CONFIG_CMDLINE_TAG			/* enable passing of ATAGs */
-#define CONFIG_REVISION_TAG
 #define CONFIG_SETUP_MEMORY_TAGS
 #define CONFIG_INITRD_TAG
 
@@ -45,7 +44,7 @@
 #define CONFIG_MXC_GPIO
 
 #define CONFIG_MXC_UART
-#define CONFIG_SYS_MX53_UART1
+#define CONFIG_MXC_UART_BASE	UART1_BASE
 
 /* I2C Configs */
 #define CONFIG_CMD_I2C
@@ -53,7 +52,6 @@
 #define CONFIG_I2C_MXC
 #define CONFIG_SYS_I2C_MX53_PORT2
 #define CONFIG_SYS_I2C_SPEED            100000
-#define CONFIG_SYS_I2C_SLAVE            0xfe
 
 /* MMC Configs */
 #define CONFIG_FSL_ESDHC
@@ -84,7 +82,6 @@
 #define CONFIG_ENV_OVERWRITE
 #define CONFIG_CONS_INDEX		1
 #define CONFIG_BAUDRATE			115200
-#define CONFIG_SYS_BAUDRATE_TABLE	{9600, 19200, 38400, 57600, 115200}
 
 /* Command definition */
 #include <config_cmd_default.h>
@@ -93,7 +90,7 @@
 
 #define CONFIG_BOOTDELAY	3
 
-#define CONFIG_PRIME	"FEC0"
+#define CONFIG_ETHPRIME		"FEC0"
 
 #define CONFIG_LOADADDR		0x70800000	/* loadaddr env var */
 #define CONFIG_SYS_TEXT_BASE    0x77800000
@@ -139,7 +136,6 @@
 /* Miscellaneous configurable options */
 #define CONFIG_SYS_LONGHELP		/* undef to save memory */
 #define CONFIG_SYS_HUSH_PARSER		/* use "hush" command parser */
-#define CONFIG_SYS_PROMPT_HUSH_PS2	"> "
 #define CONFIG_SYS_PROMPT		"MX53SMD U-Boot > "
 #define CONFIG_AUTO_COMPLETE
 #define CONFIG_SYS_CBSIZE		256	/* Console I/O Buffer Size */
@@ -150,7 +146,7 @@
 #define CONFIG_SYS_BARGSIZE CONFIG_SYS_CBSIZE /* Boot Argument Buffer Size */
 
 #define CONFIG_SYS_MEMTEST_START       0x70000000
-#define CONFIG_SYS_MEMTEST_END         0x10000
+#define CONFIG_SYS_MEMTEST_END         0x70010000
 
 #define CONFIG_SYS_LOAD_ADDR		CONFIG_LOADADDR
 

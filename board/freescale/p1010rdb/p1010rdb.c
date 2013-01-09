@@ -165,11 +165,7 @@ int checkboard(void)
 	struct cpu_type *cpu;
 
 	cpu = gd->cpu;
-	printf("Board: %sRDB ", cpu->name);
-#ifdef CONFIG_PHYS_64BIT
-	puts("(36-bit addrmap)");
-#endif
-	puts("\n");
+	printf("Board: %sRDB\n", cpu->name);
 
 	return 0;
 }
@@ -275,7 +271,9 @@ void ft_board_setup(void *blob, bd_t *bd)
 
 	fdt_fixup_memory(blob, (u64)base, (u64)size);
 
+#if defined(CONFIG_HAS_FSL_DR_USB)
 	fdt_fixup_dr_usb(blob, bd);
+#endif
 
        /* P1014 and it's derivatives don't support CAN and eTSEC3 */
 	if (cpu->soc_ver == SVR_P1014 || cpu->soc_ver == SVR_P1014_E) {

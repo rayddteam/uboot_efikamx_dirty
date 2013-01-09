@@ -48,6 +48,8 @@
 #include <nand.h>
 #include <onenand_uboot.h>
 #include <mmc.h>
+#include <libfdt.h>
+#include <fdtdec.h>
 #include <post.h>
 #include <logbuff.h>
 
@@ -71,15 +73,10 @@ extern int  AT91F_DataflashInit(void);
 extern void dataflash_print_info(void);
 #endif
 
-#ifdef CONFIG_DRIVER_RTL8019
-extern void rtl8019_get_enetaddr (uchar * addr);
-#endif
-
 #if defined(CONFIG_HARD_I2C) || \
     defined(CONFIG_SOFT_I2C)
 #include <i2c.h>
 #endif
-
 
 /************************************************************************
  * Coloured LED functionality
@@ -234,8 +231,11 @@ init_fnc_t *init_sequence[] = {
 #if defined(CONFIG_BOARD_EARLY_INIT_F)
 	board_early_init_f,
 #endif
+#ifdef CONFIG_OF_CONTROL
+	fdtdec_check_fdt,
+#endif
 	timer_init,		/* initialize timer */
-#ifdef CONFIG_FSL_ESDHC
+#ifdef CONFIG_IMX_MMC
 	get_clocks,
 #endif
 	env_init,		/* initialize environment */
@@ -266,6 +266,8 @@ void board_init_f(ulong bootflag)
 	ulong reg;
 #endif
 
+	bootstage_mark_name(BOOTSTAGE_ID_START_UBOOT_F, "board_init_f");
+
 	/* Pointer is writable since we allocated a register for it */
 	gd = (gd_t *) ((CONFIG_SYS_INIT_SP_ADDR) & ~0x07);
 	/* compiler optimization barrier needed for GCC >= 3.4 */
@@ -274,12 +276,30 @@ void board_init_f(ulong bootflag)
 	memset((void *)gd, 0, sizeof(gd_t));
 
 	gd->mon_len = _bss_end_ofs;
+#ifdef CONFIG_OF_EMBED
+	/* Get a pointer to the FDT */
+	gd->fdt_blob = _binary_dt_dtb_start;
+#elif defined CONFIG_OF_SEPARATE
+	/* FDT is at end of image */
+	gd->fdt_blob = (void *)(_end_ofs + _TEXT_BASE);
+#endif
+	/* Allow the early environment to override the fdt address */
+	gd->fdt_blob = (void *)getenv_ulong("fdtcontroladdr", 16,
+						(uintptr_t)gd->fdt_blob);
 
 	for (init_fnc_ptr = init_sequence; *init_fnc_ptr; ++init_fnc_ptr) {
 		if ((*init_fnc_ptr)() != 0) {
 			hang ();
 		}
 	}
+
+#ifdef CONFIG_OF_CONTROL
+	/* For now, put this check after the console is ready */
+	if (fdtdec_prepare_fdt()) {
+		panic("** CONFIG_OF_CONTROL defined but no FDT - please see "
+			"doc/README.fdt-control");
+	}
+#endif
 
 	debug("monitor len: %08lX\n", gd->mon_len);
 	/*
@@ -445,6 +465,7 @@ void board_init_r(gd_t *id, ulong dest_addr)
 	gd = id;
 
 	gd->flags |= GD_FLG_RELOC;	/* tell others: relocation done */
+	bootstage_mark_name(BOOTSTAGE_ID_START_UBOOT_R, "board_init_r");
 
 	monitor_flash_len = _end_ofs;
 
@@ -453,7 +474,15 @@ void board_init_r(gd_t *id, ulong dest_addr)
 
 	debug("monitor flash len: %08lX\n", monitor_flash_len);
 	board_init();	/* Setup chipselects */
-
+	/*
+	 * TODO: printing of the clock inforamtion of the board is now
+	 * implemented as part of bdinfo command. Currently only support for
+	 * davinci SOC's is added. Remove this check once all the board
+	 * implement this.
+	 */
+#ifdef CONFIG_CLOCKS
+	set_cpu_clk_info(); /* Setup clock information */
+#endif
 #ifdef CONFIG_SERIAL_MULTI
 	serial_initialize();
 #endif
@@ -477,13 +506,14 @@ void board_init_r(gd_t *id, ulong dest_addr)
 	flash_size = flash_init();
 	if (flash_size > 0) {
 # ifdef CONFIG_SYS_FLASH_CHECKSUM
+		char *s = getenv("flashchecksum");
+
 		print_size(flash_size, "");
 		/*
 		 * Compute and print flash CRC if flashchecksum is set to 'y'
 		 *
 		 * NOTE: Maybe we should add some WATCHDOG_RESET()? XXX
 		 */
-		s = getenv("flashchecksum");
 		if (s && (*s == 'y')) {
 			printf("  CRC: %08X", crc32(0,
 				(const unsigned char *) CONFIG_SYS_FLASH_BASE,
@@ -508,11 +538,6 @@ void board_init_r(gd_t *id, ulong dest_addr)
 	onenand_init();
 #endif
 
-#ifdef CONFIG_GENERIC_MMC
-       puts("MMC:   ");
-       mmc_initialize(gd->bd);
-#endif
-
 #ifdef CONFIG_HAS_DATAFLASH
 	AT91F_DataflashInit();
 	dataflash_print_info();
@@ -524,9 +549,6 @@ void board_init_r(gd_t *id, ulong dest_addr)
 #if defined(CONFIG_CMD_PCI) || defined(CONFIG_PCI)
 	arm_pci_init();
 #endif
-
-	/* IP Address */
-	gd->bd->bi_ip_addr = getenv_IPaddr("ipaddr");
 
 	stdio_init();	/* get the devices list going. */
 
@@ -565,13 +587,8 @@ void board_init_r(gd_t *id, ulong dest_addr)
 
 	/* Initialize from environment */
 	load_addr = getenv_ulong("loadaddr", 16, load_addr);
-#if defined(CONFIG_CMD_NET)
-	char *s = getenv("bootfile");
-	if (s != NULL)
-		copy_filename(BootFile, s, sizeof(BootFile));
-#endif
 
-#ifdef BOARD_LATE_INIT
+#ifdef CONFIG_BOARD_LATE_INIT
 	board_late_init();
 #endif
 
@@ -585,6 +602,11 @@ void board_init_r(gd_t *id, ulong dest_addr)
 	debug("Reset Ethernet PHY\n");
 	reset_phy();
 #endif
+#endif
+
+#ifdef CONFIG_GENERIC_MMC
+       puts("MMC:   ");
+       mmc_initialize(gd->bd);
 #endif
 
 #ifdef CONFIG_POST

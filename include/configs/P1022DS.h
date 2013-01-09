@@ -173,7 +173,7 @@
 #define CONFIG_SYS_INIT_SP_OFFSET	CONFIG_SYS_GBL_DATA_OFFSET
 
 #define CONFIG_SYS_MONITOR_LEN		(512 * 1024)
-#define CONFIG_SYS_MALLOC_LEN		(6 * 1024 * 1024)
+#define CONFIG_SYS_MALLOC_LEN		(10 * 1024 * 1024)
 
 /*
  * Serial Port
@@ -192,7 +192,6 @@
 
 /* Use the HUSH parser */
 #define CONFIG_SYS_HUSH_PARSER
-#define CONFIG_SYS_PROMPT_HUSH_PS2 "> "
 
 /* Video */
 #define CONFIG_FSL_DIU_FB
@@ -345,7 +344,6 @@
 /* SATA */
 #define CONFIG_LIBATA
 #define CONFIG_FSL_SATA
-#define CONFIG_FSL_SATA_V2
 
 #define CONFIG_SYS_SATA_MAX_DEVICE	2
 #define CONFIG_SATA1

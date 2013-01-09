@@ -50,13 +50,7 @@ ulong monitor_flash_len;
 #endif
 static int init_baudrate(void)
 {
-	char tmp[64];	/* long enough for environment variables */
-	int i = getenv_f("baudrate", tmp, sizeof(tmp));
-
-	gd->bd->bi_baudrate = gd->baudrate = (i > 0)
-			? (int) simple_strtoul(tmp, NULL, 10)
-			: CONFIG_BAUDRATE;
-
+	gd->baudrate = getenv_ulong("baudrate", 10, CONFIG_BAUDRATE);
 	return 0;
 }
 
@@ -357,6 +351,11 @@ void board_init_r(gd_t *id, ulong dest_addr)
 	nand_init();		/* go init the NAND */
 #endif
 
+#if defined(CONFIG_CMD_IDE)
+	puts("IDE:   ");
+	ide_init();
+#endif
+
 #ifdef CONFIG_GENERIC_MMC
 	puts("MMC:   ");
 	mmc_initialize(gd->bd);
@@ -366,11 +365,9 @@ void board_init_r(gd_t *id, ulong dest_addr)
 	env_relocate();
 
 #if defined(CONFIG_CMD_PCI) || defined(CONFIG_PCI)
+	puts("PCI:   ");
 	nds32_pci_init();
 #endif
-
-	/* IP Address */
-	gd->bd->bi_ip_addr = getenv_IPaddr("ipaddr");
 
 	stdio_init();	/* get the devices list going. */
 
@@ -400,15 +397,7 @@ void board_init_r(gd_t *id, ulong dest_addr)
 #endif
 
 	/* Initialize from environment */
-	s = getenv("loadaddr");
-	if (s != NULL)
-		load_addr = simple_strtoul(s, NULL, 16);
-
-#if defined(CONFIG_CMD_NET)
-	s = getenv("bootfile");
-	if (s != NULL)
-		copy_filename(BootFile, s, sizeof(BootFile));
-#endif
+	load_addr = getenv_ulong("loadaddr", 16, load_addr);
 
 #ifdef BOARD_LATE_INIT
 	board_late_init();

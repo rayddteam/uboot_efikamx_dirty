@@ -76,6 +76,9 @@ struct mxc_ccm_reg {
 	u32 CCGR4;
 	u32 CCGR5;
 	u32 CCGR6;	/* 0x0080 */
+#ifdef CONFIG_MX53
+	u32 CCGR7;      /* 0x0084 */
+#endif
 	u32 cmeor;
 };
 
@@ -84,6 +87,9 @@ struct mxc_ccm_reg {
 #define MXC_CCM_CACRR_ARM_PODF_MASK		0x7
 
 /* Define the bits in register CBCDR */
+#define MXC_CCM_CBCDR_DDR_HIFREQ_SEL		(0x1 << 30)
+#define MXC_CCM_CBCDR_DDR_PODF_MASK		(0x7 << 27)
+#define MXC_CCM_CBCDR_DDR_PODF_OFFSET		27
 #define MXC_CCM_CBCDR_EMI_CLK_SEL		(0x1 << 26)
 #define MXC_CCM_CBCDR_PERIPH_CLK_SEL		(0x1 << 25)
 #define MXC_CCM_CBCDR_EMI_PODF_OFFSET		22
@@ -116,12 +122,27 @@ struct mxc_ccm_reg {
 #define MXC_CCM_CSCMR1_UART_CLK_SEL_MASK		(0x3 << 24)
 #define MXC_CCM_CSCMR1_USBOH3_CLK_SEL_OFFSET		22
 #define MXC_CCM_CSCMR1_USBOH3_CLK_SEL_MASK		(0x3 << 22)
+
+#define MXC_CCM_CSCDR1_ESDHC2_MSHC2_CLK_PRED(v)		(((v) & 0x7) << 22)
+#define MXC_CCM_CSCDR1_ESDHC2_MSHC2_CLK_PRED_RD(r)	(((r) >> 22) & 0x7)
+#define MXC_CCM_CSCDR1_ESDHC2_MSHC2_CLK_PODF(v)		(((v) & 0x7) << 19)
+#define MXC_CCM_CSCDR1_ESDHC2_MSHC2_CLK_PODF_RD(r)	(((r) >> 19) & 0x7)
+#define MXC_CCM_CSCDR1_ESDHC1_MSHC1_CLK_PRED(v)		(((v) & 0x7) << 16)
+#define MXC_CCM_CSCDR1_ESDHC1_MSHC1_CLK_PRED_RD(r)	(((r) >> 16) & 0x7)
+#define MXC_CCM_CSCDR1_ESDHC1_MSHC1_CLK_PODF(v)		(((v) & 0x7) << 11)
+#define MXC_CCM_CSCDR1_ESDHC1_MSHC1_CLK_PODF_RD(r)	(((r) >> 11) & 0x7)
+
+
 #define MXC_CCM_CSCMR1_ESDHC1_MSHC1_CLK_SEL_OFFSET	20
 #define MXC_CCM_CSCMR1_ESDHC1_MSHC1_CLK_SEL_MASK	(0x3 << 20)
+#define MXC_CCM_CSCMR1_ESDHC1_MSHC1_CLK_SEL(v)		(((v) & 0x3) << 20)
+#define MXC_CCM_CSCMR1_ESDHC1_MSHC1_CLK_SEL_RD(r)	(((r) >> 20) & 0x3)
 #define MXC_CCM_CSCMR1_ESDHC3_CLK_SEL			(0x1 << 19)
 #define MXC_CCM_CSCMR1_ESDHC4_CLK_SEL			(0x1 << 18)
 #define MXC_CCM_CSCMR1_ESDHC2_MSHC2_CLK_SEL_OFFSET	16
 #define MXC_CCM_CSCMR1_ESDHC2_MSHC2_CLK_SEL_MASK	(0x3 << 16)
+#define MXC_CCM_CSCMR1_ESDHC2_MSHC2_CLK_SEL(v)		(((v) & 0x3) << 16)
+#define MXC_CCM_CSCMR1_ESDHC2_MSHC2_CLK_SEL_RD(r)	(((r) >> 16) & 0x3)
 #define MXC_CCM_CSCMR1_SSI1_CLK_SEL_OFFSET		14
 #define MXC_CCM_CSCMR1_SSI1_CLK_SEL_MASK		(0x3 << 14)
 #define MXC_CCM_CSCMR1_SSI2_CLK_SEL_OFFSET		12
@@ -195,7 +216,10 @@ struct mxc_ccm_reg {
 /* Define the bits in register CCGRx */
 #define MXC_CCM_CCGR_CG_MASK				0x3
 
+#define MXC_CCM_CCGR4_CG5_OFFSET			10
+#define MXC_CCM_CCGR4_CG6_OFFSET			12
 #define MXC_CCM_CCGR5_CG5_OFFSET			10
+#define MXC_CCM_CCGR2_CG14_OFFSET			28
 
 /* Define the bits in register CLPCR */
 #define MXC_CCM_CLPCR_BYPASS_IPU_LPM_HS                 (0x1 << 18)

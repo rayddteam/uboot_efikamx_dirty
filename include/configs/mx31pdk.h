@@ -61,7 +61,7 @@
  */
 
 #define CONFIG_MXC_UART
-#define CONFIG_SYS_MX31_UART1
+#define CONFIG_MXC_UART_BASE	UART1_BASE
 #define CONFIG_HW_WATCHDOG
 #define CONFIG_MXC_GPIO
 
@@ -70,18 +70,21 @@
 #define CONFIG_DEFAULT_SPI_BUS	1
 #define CONFIG_DEFAULT_SPI_MODE	(SPI_MODE_0 | SPI_CS_HIGH)
 
-#define CONFIG_FSL_PMIC
+/* PMIC Controller */
+#define CONFIG_PMIC
+#define CONFIG_PMIC_SPI
+#define CONFIG_PMIC_FSL
 #define CONFIG_FSL_PMIC_BUS	1
 #define CONFIG_FSL_PMIC_CS	2
 #define CONFIG_FSL_PMIC_CLK	1000000
 #define CONFIG_FSL_PMIC_MODE	(SPI_MODE_0 | SPI_CS_HIGH)
-#define CONFIG_RTC_MC13783
+#define CONFIG_FSL_PMIC_BITLEN	32
+#define CONFIG_RTC_MC13XXX
 
 /* allow to overwrite serial and ethaddr */
 #define CONFIG_ENV_OVERWRITE
 #define CONFIG_CONS_INDEX		1
 #define CONFIG_BAUDRATE			115200
-#define CONFIG_SYS_BAUDRATE_TABLE	{9600, 19200, 38400, 57600, 115200}
 
 /***********************************************************
  * Command definition
@@ -95,6 +98,7 @@
 #define CONFIG_CMD_SPI
 #define CONFIG_CMD_DATE
 #define CONFIG_CMD_NAND
+#define CONFIG_CMD_BOOTZ
 
 /*
  * Disabled due to compilation errors in cmd_bootm.c (IMLS seems to require
@@ -102,7 +106,7 @@
  */
 #undef CONFIG_CMD_IMLS
 
-#define BOARD_LATE_INIT
+#define CONFIG_BOARD_LATE_INIT
 
 #define CONFIG_BOOTDELAY	3
 
@@ -137,7 +141,7 @@
 
 /* memtest works on */
 #define CONFIG_SYS_MEMTEST_START	0x80000000
-#define CONFIG_SYS_MEMTEST_END		0x10000
+#define CONFIG_SYS_MEMTEST_END		0x80010000
 
 /* default load address */
 #define CONFIG_SYS_LOAD_ADDR		0x81000000

@@ -99,6 +99,8 @@
 #endif
 
 #define TOLOWER(c)	if((c) >= 'A' && (c) <= 'Z'){(c)+=('a' - 'A');}
+#define TOUPPER(c)	if ((c) >= 'a' && (c) <= 'z') \
+				(c) -= ('a' - 'A');
 #define START(dent)	(FAT2CPU16((dent)->start) \
 			+ (mydata->fatsize != 32 ? 0 : \
 			  (FAT2CPU16((dent)->starthi) << 16)))
@@ -176,12 +178,12 @@ typedef struct dir_slot {
 typedef struct {
 	__u8	*fatbuf;	/* Current FAT buffer */
 	int	fatsize;	/* Size of FAT in bits */
-	__u16	fatlength;	/* Length of FAT in sectors */
+	__u32	fatlength;	/* Length of FAT in sectors */
 	__u16	fat_sect;	/* Starting sector of the FAT */
-	__u16	rootdir_sect;	/* Start sector of root directory */
+	__u32	rootdir_sect;	/* Start sector of root directory */
 	__u16	sect_size;	/* Size of sectors in bytes */
 	__u16	clust_size;	/* Size of clusters in sectors */
-	short	data_begin;	/* The sector of the first cluster, can be negative */
+	int	data_begin;	/* The sector of the first cluster, can be negative */
 	int	fatbufnum;	/* Used by get_fatent, init to -1 */
 } fsdata;
 
@@ -210,4 +212,5 @@ long file_fat_read(const char *filename, void *buffer, unsigned long maxsize);
 const char *file_getfsname(int idx);
 int fat_register_device(block_dev_desc_t *dev_desc, int part_no);
 
+int file_fat_write(const char *filename, void *buffer, unsigned long maxsize);
 #endif /* _FAT_H_ */

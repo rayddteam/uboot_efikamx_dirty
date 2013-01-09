@@ -107,7 +107,8 @@
 #define IH_ARCH_AVR32		17	/* AVR32	*/
 #define IH_ARCH_ST200	        18	/* STMicroelectronics ST200  */
 #define IH_ARCH_SANDBOX		19	/* Sandbox architecture (test only) */
-#define IH_ARCH_NDS32	        19	/* ANDES Technology - NDS32  */
+#define IH_ARCH_NDS32	        20	/* ANDES Technology - NDS32  */
+#define IH_ARCH_OPENRISC        21	/* OpenRISC 1000  */
 
 /*
  * Image Types
@@ -162,6 +163,7 @@
 #define IH_TYPE_UBLIMAGE	11	/* Davinci UBL Image		*/
 #define IH_TYPE_OMAPIMAGE	12	/* TI OMAP Config Header Image	*/
 #define IH_TYPE_AISIMAGE	13	/* TI Davinci AIS Image		*/
+#define IH_TYPE_KERNEL_NOLOAD	14	/* OS Kernel Image, can run from any load address */
 
 /*
  * Compression Types
@@ -265,6 +267,8 @@ typedef struct bootm_headers {
 	struct lmb	lmb;		/* for memory mgmt */
 #endif
 } bootm_headers_t;
+
+extern bootm_headers_t images;
 
 /*
  * Some systems (for example LWMON) have very short watchdog periods;
@@ -527,9 +531,9 @@ static inline int image_check_target_arch(const image_header_t *hdr)
 #define FIT_MAX_HASH_LEN	20	/* max(crc32_len(4), sha1_len(20)) */
 
 /* cmdline argument format parsing */
-inline int fit_parse_conf(const char *spec, ulong addr_curr,
+int fit_parse_conf(const char *spec, ulong addr_curr,
 		ulong *addr, const char **conf_name);
-inline int fit_parse_subimage(const char *spec, ulong addr_curr,
+int fit_parse_subimage(const char *spec, ulong addr_curr,
 		ulong *addr, const char **image_name);
 
 void fit_print_contents(const void *fit);
@@ -615,7 +619,7 @@ void fit_conf_print(const void *fit, int noffset, const char *p);
 #ifndef USE_HOSTCC
 static inline int fit_image_check_target_arch(const void *fdt, int node)
 {
-	return !fit_image_check_arch(fdt, node, IH_ARCH_DEFAULT);
+	return fit_image_check_arch(fdt, node, IH_ARCH_DEFAULT);
 }
 #endif /* USE_HOSTCC */
 

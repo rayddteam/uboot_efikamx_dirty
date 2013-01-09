@@ -28,6 +28,58 @@
 
 #include <asm/arch/mux_omap4.h>
 
+
+const struct pad_conf_entry core_padconf_array_essential[] = {
+
+{GPMC_AD0, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M1)}, /* sdmmc2_dat0 */
+{GPMC_AD1, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M1)}, /* sdmmc2_dat1 */
+{GPMC_AD2, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M1)}, /* sdmmc2_dat2 */
+{GPMC_AD3, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M1)}, /* sdmmc2_dat3 */
+{GPMC_AD4, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M1)}, /* sdmmc2_dat4 */
+{GPMC_AD5, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M1)}, /* sdmmc2_dat5 */
+{GPMC_AD6, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M1)}, /* sdmmc2_dat6 */
+{GPMC_AD7, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M1)}, /* sdmmc2_dat7 */
+{GPMC_NOE, (PTU | IEN | OFF_EN | OFF_OUT_PTD | M1)},	 /* sdmmc2_clk */
+{GPMC_NWE, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M1)}, /* sdmmc2_cmd */
+{SDMMC1_CLK, (PTU | OFF_EN | OFF_OUT_PTD | M0)},	 /* sdmmc1_clk */
+{SDMMC1_CMD, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M0)}, /* sdmmc1_cmd */
+{SDMMC1_DAT0, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M0)}, /* sdmmc1_dat0 */
+{SDMMC1_DAT1, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M0)}, /* sdmmc1_dat1 */
+{SDMMC1_DAT2, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M0)}, /* sdmmc1_dat2 */
+{SDMMC1_DAT3, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M0)}, /* sdmmc1_dat3 */
+{SDMMC1_DAT4, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M0)}, /* sdmmc1_dat4 */
+{SDMMC1_DAT5, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M0)}, /* sdmmc1_dat5 */
+{SDMMC1_DAT6, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M0)}, /* sdmmc1_dat6 */
+{SDMMC1_DAT7, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M0)}, /* sdmmc1_dat7 */
+{I2C1_SCL, (PTU | IEN | M0)},				/* i2c1_scl */
+{I2C1_SDA, (PTU | IEN | M0)},				/* i2c1_sda */
+{I2C2_SCL, (PTU | IEN | M0)},				/* i2c2_scl */
+{I2C2_SDA, (PTU | IEN | M0)},				/* i2c2_sda */
+{I2C3_SCL, (PTU | IEN | M0)},				/* i2c3_scl */
+{I2C3_SDA, (PTU | IEN | M0)},				/* i2c3_sda */
+{I2C4_SCL, (PTU | IEN | M0)},				/* i2c4_scl */
+{I2C4_SDA, (PTU | IEN | M0)},				/* i2c4_sda */
+{UART3_CTS_RCTX, (PTU | IEN | M0)},			/* uart3_tx */
+{UART3_RTS_SD, (M0)},					/* uart3_rts_sd */
+{UART3_RX_IRRX, (IEN | M0)},				/* uart3_rx */
+{UART3_TX_IRTX, (M0)}					/* uart3_tx */
+
+};
+
+const struct pad_conf_entry wkup_padconf_array_essential[] = {
+
+{PAD1_SR_SCL, (PTU | IEN | M0)}, /* sr_scl */
+{PAD0_SR_SDA, (PTU | IEN | M0)}, /* sr_sda */
+{PAD1_SYS_32K, (IEN | M0)}	 /* sys_32k */
+
+};
+
+const struct pad_conf_entry wkup_padconf_array_essential_4460[] = {
+
+{PAD1_FREF_CLK4_REQ, (M3)}, /* gpio_wk7 for TPS: Mode 3 */
+
+};
+
 const struct pad_conf_entry core_padconf_array_non_essential[] = {
 	{GPMC_AD8, (PTU | IEN | OFF_EN | OFF_PD | OFF_IN | M3)},	/* gpio_32 */
 	{GPMC_AD9, (PTU | IEN | M3)},					/* gpio_33 */
@@ -84,14 +136,14 @@ const struct pad_conf_entry core_padconf_array_non_essential[] = {
 	{CAM_SHUTTER, (OFF_EN | OFF_PD | OFF_OUT_PTD | M0)},		/* cam_shutter */
 	{CAM_STROBE, (OFF_EN | OFF_PD | OFF_OUT_PTD | M0)},		/* cam_strobe */
 	{CAM_GLOBALRESET, (PTD | OFF_EN | OFF_PD | OFF_OUT_PTD | M3)},	/* gpio_83 */
-	{USBB1_ULPITLL_CLK, (IEN | OFF_EN | OFF_IN | M1)},		/* hsi1_cawake */
-	{USBB1_ULPITLL_STP, (IEN | OFF_EN | OFF_IN | M1)},		/* hsi1_cadata */
-	{USBB1_ULPITLL_DIR, (IEN | OFF_EN | OFF_IN | M1)},		/* hsi1_caflag */
-	{USBB1_ULPITLL_NXT, (OFF_EN | M1)},				/* hsi1_acready */
-	{USBB1_ULPITLL_DAT0, (OFF_EN | M1)},				/* hsi1_acwake */
-	{USBB1_ULPITLL_DAT1, (OFF_EN | M1)},				/* hsi1_acdata */
-	{USBB1_ULPITLL_DAT2, (OFF_EN | M1)},				/* hsi1_acflag */
-	{USBB1_ULPITLL_DAT3, (IEN | OFF_EN | OFF_IN | M1)},		/* hsi1_caready */
+	{USBB1_ULPITLL_CLK, (PTD | IEN | OFF_EN | OFF_PD | OFF_IN | M4)},/* usbb1_ulpiphy_clk */
+	{USBB1_ULPITLL_STP, (OFF_EN | OFF_OUT_PTD | M4)},		/* usbb1_ulpiphy_stp */
+	{USBB1_ULPITLL_DIR, (IEN | OFF_EN | OFF_PD | OFF_IN | M4)},	/* usbb1_ulpiphy_dir */
+	{USBB1_ULPITLL_NXT, (IEN | OFF_EN | OFF_PD | OFF_IN | M4)},	/* usbb1_ulpiphy_nxt */
+	{USBB1_ULPITLL_DAT0, (IEN | OFF_EN | OFF_PD | OFF_IN | M4)},	/* usbb1_ulpiphy_dat0 */
+	{USBB1_ULPITLL_DAT1, (IEN | OFF_EN | OFF_PD | OFF_IN | M4)},	/* usbb1_ulpiphy_dat1 */
+	{USBB1_ULPITLL_DAT2, (IEN | OFF_EN | OFF_PD | OFF_IN | M4)},	/* usbb1_ulpiphy_dat2 */
+	{USBB1_ULPITLL_DAT3, (IEN | OFF_EN | OFF_PD | OFF_IN | M4)},	/* usbb1_ulpiphy_dat3 */
 	{USBB1_ULPITLL_DAT4, (IEN | OFF_EN | OFF_PD | OFF_IN | M4)},	/* usbb1_ulpiphy_dat4 */
 	{USBB1_ULPITLL_DAT5, (IEN | OFF_EN | OFF_PD | OFF_IN | M4)},	/* usbb1_ulpiphy_dat5 */
 	{USBB1_ULPITLL_DAT6, (IEN | OFF_EN | OFF_PD | OFF_IN | M4)},	/* usbb1_ulpiphy_dat6 */
@@ -100,7 +152,6 @@ const struct pad_conf_entry core_padconf_array_non_essential[] = {
 	{USBB1_HSIC_STROBE, (IEN | OFF_EN | OFF_PD | OFF_IN | M0)},	/* usbb1_hsic_strobe */
 	{USBC1_ICUSB_DP, (IEN | M0)},					/* usbc1_icusb_dp */
 	{USBC1_ICUSB_DM, (IEN | M0)},					/* usbc1_icusb_dm */
-	{ABE_MCBSP2_CLKX, (IEN | OFF_EN | OFF_PD | OFF_IN | M0)},	/* abe_mcbsp2_clkx */
 	{ABE_MCBSP2_DR, (IEN | OFF_EN | OFF_OUT_PTD | M0)},		/* abe_mcbsp2_dr */
 	{ABE_MCBSP2_DX, (OFF_EN | OFF_OUT_PTD | M0)},			/* abe_mcbsp2_dx */
 	{ABE_MCBSP2_FSX, (IEN | OFF_EN | OFF_PD | OFF_IN | M0)},	/* abe_mcbsp2_fsx */
@@ -117,10 +168,10 @@ const struct pad_conf_entry core_padconf_array_non_essential[] = {
 	{ABE_DMIC_DIN1, (IEN | M0)},					/* abe_dmic_din1 */
 	{ABE_DMIC_DIN2, (PTU | IEN | M3)},				/* gpio_121 */
 	{ABE_DMIC_DIN3, (IEN | M0)},					/* abe_dmic_din3 */
-	{UART2_CTS, (PTU | IEN | M0)},					/* uart2_cts */
-	{UART2_RTS, (M0)},						/* uart2_rts */
-	{UART2_RX, (PTU | IEN | M0)},					/* uart2_rx */
-	{UART2_TX, (M0)},						/* uart2_tx */
+	{UART2_CTS, (PTU | IEN | M7)},					/* uart2_cts */
+	{UART2_RTS, (M7)},						/* uart2_rts */
+	{UART2_RX, (PTU | IEN | M7)},					/* uart2_rx */
+	{UART2_TX, (M7)},						/* uart2_tx */
 	{HDQ_SIO, (M3)},						/* gpio_127 */
 	{MCSPI1_CLK, (IEN | OFF_EN | OFF_PD | OFF_IN | M0)},		/* mcspi1_clk */
 	{MCSPI1_SOMI, (IEN | OFF_EN | OFF_PD | OFF_IN | M0)},		/* mcspi1_somi */
@@ -202,6 +253,14 @@ const struct pad_conf_entry core_padconf_array_non_essential[] = {
 	{DPM_EMU19, (IEN | M5)},					/* dispc2_data0 */
 };
 
+const struct pad_conf_entry core_padconf_array_non_essential_4430[] = {
+	{ABE_MCBSP2_CLKX, (IEN | OFF_EN | OFF_PD | OFF_IN | M0)},	/* abe_mcbsp2_clkx */
+};
+
+const struct pad_conf_entry core_padconf_array_non_essential_4460[] = {
+	{ABE_MCBSP2_CLKX, (PTU | OFF_EN | OFF_OUT_PTU | M3)},		/* led status_1 */
+};
+
 const struct pad_conf_entry wkup_padconf_array_non_essential[] = {
 	{PAD0_SIM_IO, (IEN | M0)},		/* sim_io */
 	{PAD1_SIM_CLK, (M0)},			/* sim_clk */
@@ -212,9 +271,8 @@ const struct pad_conf_entry wkup_padconf_array_non_essential[] = {
 	{PAD0_FREF_SLICER_IN, (M0)},		/* fref_slicer_in */
 	{PAD1_FREF_CLK_IOREQ, (M0)},		/* fref_clk_ioreq */
 	{PAD0_FREF_CLK0_OUT, (M2)},		/* sys_drm_msecure */
-	{PAD1_FREF_CLK3_REQ, M7},					/* safe mode */
+	{PAD1_FREF_CLK3_REQ, M7},		/* safe mode */
 	{PAD0_FREF_CLK3_OUT, (M0)},		/* fref_clk3_out */
-	{PAD1_FREF_CLK4_REQ, (PTU | M3)},	/* led status_1 */
 	{PAD0_FREF_CLK4_OUT, (PTU | M3)},	/* led status_2 */
 	{PAD0_SYS_NRESPWRON, (M0)},		/* sys_nrespwron */
 	{PAD1_SYS_NRESWARM, (M0)},		/* sys_nreswarm */
@@ -222,6 +280,10 @@ const struct pad_conf_entry wkup_padconf_array_non_essential[] = {
 	{PAD1_SYS_PWRON_RESET, (M3)},		/* gpio_wk29 */
 	{PAD0_SYS_BOOT6, (IEN | M3)},		/* gpio_wk9 */
 	{PAD1_SYS_BOOT7, (IEN | M3)},		/* gpio_wk10 */
+};
+
+const struct pad_conf_entry wkup_padconf_array_non_essential_4430[] = {
+	{PAD1_FREF_CLK4_REQ, (PTU | M3)},	/* led status_1 */
 };
 
 #endif /* _PANDA_MUX_DATA_H_ */

@@ -31,12 +31,14 @@ COBJS-$(CONFIG_ARMADA100_FEC) += armada100_fec.o
 COBJS-$(CONFIG_DRIVER_AT91EMAC) += at91_emac.o
 COBJS-$(CONFIG_DRIVER_AX88180) += ax88180.o
 COBJS-$(CONFIG_BFIN_MAC) += bfin_mac.o
+COBJS-$(CONFIG_CALXEDA_XGMAC) += calxedaxgmac.o
 COBJS-$(CONFIG_CS8900) += cs8900.o
 COBJS-$(CONFIG_TULIP) += dc2114x.o
 COBJS-$(CONFIG_DESIGNWARE_ETH) += designware.o
 COBJS-$(CONFIG_DRIVER_DM9000) += dm9000x.o
 COBJS-$(CONFIG_DNET) += dnet.o
 COBJS-$(CONFIG_E1000) += e1000.o
+COBJS-$(CONFIG_E1000_SPI) += e1000_spi.o
 COBJS-$(CONFIG_EEPRO100) += eepro100.o
 COBJS-$(CONFIG_ENC28J60) += enc28j60.o
 COBJS-$(CONFIG_EP93XX) += ep93xx_eth.o
@@ -62,7 +64,6 @@ COBJS-$(CONFIG_NETCONSOLE) += netconsole.o
 COBJS-$(CONFIG_NS8382X) += ns8382x.o
 COBJS-$(CONFIG_PCNET) += pcnet.o
 COBJS-$(CONFIG_PLB2800_ETHER) += plb2800_eth.o
-COBJS-$(CONFIG_DRIVER_RTL8019) += rtl8019.o
 COBJS-$(CONFIG_RTL8139) += rtl8139.o
 COBJS-$(CONFIG_RTL8169) += rtl8169.o
 COBJS-$(CONFIG_SH_ETHER) += sh_eth.o
@@ -76,6 +77,8 @@ COBJS-$(CONFIG_ULI526X) += uli526x.o
 COBJS-$(CONFIG_VSC7385_ENET) += vsc7385.o
 COBJS-$(CONFIG_XILINX_AXIEMAC) += xilinx_axi_emac.o
 COBJS-$(CONFIG_XILINX_EMACLITE) += xilinx_emaclite.o
+COBJS-$(CONFIG_XILINX_LL_TEMAC) += xilinx_ll_temac.o xilinx_ll_temac_mdio.o \
+		xilinx_ll_temac_fifo.o xilinx_ll_temac_sdma.o
 
 COBJS	:= $(sort $(COBJS-y))
 SRCS	:= $(COBJS:.o=.c)

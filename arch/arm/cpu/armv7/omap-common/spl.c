@@ -34,9 +34,12 @@
 #include <asm/arch/mmc_host_def.h>
 #include <i2c.h>
 #include <image.h>
+#include <malloc.h>
+#include <linux/compiler.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
+u32* boot_params_ptr = NULL;
 struct spl_image_info spl_image;
 
 /* Define global data structure pointer to it*/
@@ -62,6 +65,25 @@ void board_init_f(ulong dummy)
 	relocate_code(CONFIG_SPL_STACK, &gdata, CONFIG_SPL_TEXT_BASE);
 }
 
+/*
+ * Default function to determine if u-boot or the OS should
+ * be started. This implementation always returns 1.
+ *
+ * Please implement your own board specific funcion to do this.
+ *
+ * RETURN
+ * 0 to not start u-boot
+ * positive if u-boot should start
+ */
+#ifdef CONFIG_SPL_OS_BOOT
+__weak int spl_start_uboot(void)
+{
+	printf("SPL: Please implement spl_start_uboot() for your board\n");
+	printf("SPL: Direct Linux boot not active!\n");
+	return 1;
+}
+#endif
+
 void spl_parse_image_header(const struct image_header *header)
 {
 	u32 header_size = sizeof(struct image_header);
@@ -79,7 +101,7 @@ void spl_parse_image_header(const struct image_header *header)
 		/* Signature not found - assume u-boot.bin */
 		printf("mkimage signature not found - ih_magic = %x\n",
 			header->ih_magic);
-		puts("Assuming u-boot.bin ..\n");
+		debug("Assuming u-boot.bin ..\n");
 		/* Let's assume U-Boot will not be more than 200 KB */
 		spl_image.size = 200 * 1024;
 		spl_image.entry_point = CONFIG_SYS_TEXT_BASE;
@@ -89,24 +111,50 @@ void spl_parse_image_header(const struct image_header *header)
 	}
 }
 
-static void jump_to_image_no_args(void)
+/*
+ * This function jumps to an image with argument. Normally an FDT or ATAGS
+ * image.
+ * arg: Pointer to paramter image in RAM
+ */
+#ifdef CONFIG_SPL_OS_BOOT
+static void __noreturn jump_to_image_linux(void *arg)
 {
-	typedef void (*image_entry_noargs_t)(void)__attribute__ ((noreturn));
+	debug("Entering kernel arg pointer: 0x%p\n", arg);
+	typedef void (*image_entry_arg_t)(int, int, void *)
+		__attribute__ ((noreturn));
+	image_entry_arg_t image_entry =
+		(image_entry_arg_t) spl_image.entry_point;
+	cleanup_before_linux();
+	image_entry(0, CONFIG_MACH_TYPE, arg);
+}
+#endif
+
+static void __noreturn jump_to_image_no_args(void)
+{
+	typedef void __noreturn (*image_entry_noargs_t)(u32 *);
 	image_entry_noargs_t image_entry =
 			(image_entry_noargs_t) spl_image.entry_point;
 
 	debug("image entry point: 0x%X\n", spl_image.entry_point);
-	image_entry();
+	/* Pass the saved boot_params from rom code */
+#if defined(CONFIG_VIRTIO) || defined(CONFIG_ZEBU)
+	image_entry = (image_entry_noargs_t)0x80100000;
+#endif
+	u32 boot_params_ptr_addr = (u32)&boot_params_ptr;
+	image_entry((u32 *)boot_params_ptr_addr);
 }
 
-void jump_to_image_no_args(void) __attribute__ ((noreturn));
 void board_init_r(gd_t *id, ulong dummy)
 {
 	u32 boot_device;
 	debug(">>spl:board_init_r()\n");
 
-	timer_init();
-	i2c_init(CONFIG_SYS_I2C_SPEED, CONFIG_SYS_I2C_SLAVE);
+	mem_malloc_init(CONFIG_SYS_SPL_MALLOC_START,
+			CONFIG_SYS_SPL_MALLOC_SIZE);
+
+#ifdef CONFIG_SPL_BOARD_INIT
+	spl_board_init();
+#endif
 
 	boot_device = omap_boot_device();
 	debug("boot device - %d\n", boot_device);
@@ -114,12 +162,18 @@ void board_init_r(gd_t *id, ulong dummy)
 #ifdef CONFIG_SPL_MMC_SUPPORT
 	case BOOT_DEVICE_MMC1:
 	case BOOT_DEVICE_MMC2:
+	case BOOT_DEVICE_MMC2_2:
 		spl_mmc_load_image();
 		break;
 #endif
 #ifdef CONFIG_SPL_NAND_SUPPORT
 	case BOOT_DEVICE_NAND:
 		spl_nand_load_image();
+		break;
+#endif
+#ifdef CONFIG_SPL_YMODEM_SUPPORT
+	case BOOT_DEVICE_UART:
+		spl_ymodem_load_image();
 		break;
 #endif
 	default:
@@ -133,6 +187,13 @@ void board_init_r(gd_t *id, ulong dummy)
 		debug("Jumping to U-Boot\n");
 		jump_to_image_no_args();
 		break;
+#ifdef CONFIG_SPL_OS_BOOT
+	case IH_OS_LINUX:
+		debug("Jumping to Linux\n");
+		spl_board_prepare_for_linux();
+		jump_to_image_linux((void *)CONFIG_SYS_SPL_ARGS_ADDR);
+		break;
+#endif
 	default:
 		puts("Unsupported OS image.. Jumping nevertheless..\n");
 		jump_to_image_no_args();
@@ -143,7 +204,6 @@ void board_init_r(gd_t *id, ulong dummy)
 void preloader_console_init(void)
 {
 	const char *u_boot_rev = U_BOOT_VERSION;
-	char rev_string_buffer[50];
 
 	gd = &gdata;
 	gd->bd = &bdata;
@@ -152,11 +212,17 @@ void preloader_console_init(void)
 
 	serial_init();		/* serial communications setup */
 
+	gd->have_console = 1;
+
 	/* Avoid a second "U-Boot" coming from this string */
 	u_boot_rev = &u_boot_rev[7];
 
 	printf("\nU-Boot SPL %s (%s - %s)\n", u_boot_rev, U_BOOT_DATE,
 		U_BOOT_TIME);
-	omap_rev_string(rev_string_buffer);
-	printf("Texas Instruments %s\n", rev_string_buffer);
+	omap_rev_string();
+}
+
+void __weak omap_rev_string()
+{
+	printf("Texas Instruments Revision detection unimplemented\n");
 }

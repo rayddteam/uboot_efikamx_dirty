@@ -98,13 +98,59 @@ extern void __raw_readsl(unsigned int addr, void *data, int longlen);
 #define __raw_readw(a)			__arch_getw(a)
 #define __raw_readl(a)			__arch_getl(a)
 
-#define writeb(v, a)			__arch_putb(v, a)
-#define writew(v, a)			__arch_putw(v, a)
-#define writel(v, a)			__arch_putl(v, a)
+/*
+ * TODO: The kernel offers some more advanced versions of barriers, it might
+ * have some advantages to use them instead of the simple one here.
+ */
+#define dmb()		__asm__ __volatile__ ("" : : : "memory")
+#define __iormb()	dmb()
+#define __iowmb()	dmb()
 
-#define readb(a)			__arch_getb(a)
-#define readw(a)			__arch_getw(a)
-#define readl(a)			__arch_getl(a)
+static inline void writeb(unsigned char val, unsigned char *addr)
+{
+	__iowmb();
+	__arch_putb(val, addr);
+}
+
+static inline void writew(unsigned short val, unsigned short *addr)
+{
+	__iowmb();
+	__arch_putw(val, addr);
+
+}
+
+static inline void writel(unsigned int val, unsigned int *addr)
+{
+	__iowmb();
+	__arch_putl(val, addr);
+}
+
+static inline unsigned char readb(unsigned char *addr)
+{
+	u8	val;
+
+	val = __arch_getb(addr);
+	__iormb();
+	return val;
+}
+
+static inline unsigned short readw(unsigned short *addr)
+{
+	u16	val;
+
+	val = __arch_getw(addr);
+	__iormb();
+	return val;
+}
+
+static inline unsigned int readl(unsigned int *addr)
+{
+	u32	val;
+
+	val = __arch_getl(addr);
+	__iormb();
+	return val;
+}
 
 /*
  * The compiler seems to be incapable of optimising constants
@@ -118,6 +164,24 @@ extern void __raw_readsl(unsigned int addr, void *data, int longlen);
 #define __raw_base_readb(base, off)	__arch_base_getb(base, off)
 #define __raw_base_readw(base, off)	__arch_base_getw(base, off)
 #define __raw_base_readl(base, off)	__arch_base_getl(base, off)
+
+#define out_arch(type, endian, a, v)	__raw_write##type(cpu_to_##endian(v), a)
+#define in_arch(type, endian, a)	endian##_to_cpu(__raw_read##type(a))
+
+#define out_le32(a, v)			out_arch(l, le32, a, v)
+#define out_le16(a, v)			out_arch(w, le16, a, v)
+
+#define in_le32(a)			in_arch(l, le32, a)
+#define in_le16(a)			in_arch(w, le16, a)
+
+#define out_be32(a, v)			out_arch(l, be32, a, v)
+#define out_be16(a, v)			out_arch(w, be16, a, v)
+
+#define in_be32(a)			in_arch(l, be32, a)
+#define in_be16(a)			in_arch(w, be16, a)
+
+#define out_8(a, v)			__raw_writeb(v, a)
+#define in_8(a)				__raw_readb(a)
 
 /*
  * Now, pick up the machine-defined IO definitions
@@ -338,20 +402,6 @@ check_signature(unsigned long io_addr, const unsigned char *signature,
 out:
 	return retval;
 }
-
-#elif !defined(readb)
-
-#define readb(addr)			(__readwrite_bug("readb"), 0)
-#define readw(addr)			(__readwrite_bug("readw"), 0)
-#define readl(addr)			(__readwrite_bug("readl"), 0)
-#define writeb(v, addr)			__readwrite_bug("writeb")
-#define writew(v, addr)			__readwrite_bug("writew")
-#define writel(v, addr)			__readwrite_bug("writel")
-
-#define eth_io_copy_and_sum(a, b, c, d)	__readwrite_bug("eth_io_copy_and_sum")
-
-#define check_signature(io, sig, len)	(0)
-
 #endif	/* __mem_pci */
 
 /*

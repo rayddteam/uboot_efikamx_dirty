@@ -60,8 +60,8 @@
  * Hardware drivers
  */
 
-#define CONFIG_MXC_UART	1
-#define CONFIG_SYS_MX31_UART1		1
+#define CONFIG_MXC_UART
+#define CONFIG_MXC_UART_BASE	UART1_BASE
 
 #define CONFIG_HARD_SPI		1
 #define CONFIG_MXC_SPI		1
@@ -69,18 +69,21 @@
 #define CONFIG_DEFAULT_SPI_MODE	(SPI_MODE_0 | SPI_CS_HIGH)
 #define CONFIG_MXC_GPIO
 
-#define CONFIG_FSL_PMIC
+/* PMIC Controller */
+#define CONFIG_PMIC
+#define CONFIG_PMIC_SPI
+#define CONFIG_PMIC_FSL
 #define CONFIG_FSL_PMIC_BUS	1
 #define CONFIG_FSL_PMIC_CS	0
 #define CONFIG_FSL_PMIC_CLK	1000000
 #define CONFIG_FSL_PMIC_MODE	(SPI_MODE_0 | SPI_CS_HIGH)
-#define CONFIG_RTC_MC13783	1
+#define CONFIG_FSL_PMIC_BITLEN	32
+#define CONFIG_RTC_MC13XXX
 
 /* allow to overwrite serial and ethaddr */
 #define CONFIG_ENV_OVERWRITE
 #define CONFIG_CONS_INDEX	1
 #define CONFIG_BAUDRATE		115200
-#define CONFIG_SYS_BAUDRATE_TABLE	{9600, 19200, 38400, 57600, 115200}
 
 /***********************************************************
  * Command definition

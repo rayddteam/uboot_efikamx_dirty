@@ -184,7 +184,7 @@
 #define CONFIG_ENV_OVERWRITE
 
 #define CONFIG_CMD_SATA
-#define CONFIG_SATA_SIL3114
+#define CONFIG_SATA_SIL
 #define CONFIG_SYS_SATA_MAX_DEVICE	2
 #define CONFIG_LIBATA
 #define CONFIG_LBA48
@@ -221,13 +221,13 @@
 
 /* IN case of NAND bootloader relocate CCSRBAR in RAMboot code not in the 4k
        SPL code*/
-#if defined(CONFIG_NAND_U_BOOT) && defined(CONFIG_NAND_SPL)
+#if defined(CONFIG_NAND_SPL)
 #define CONFIG_SYS_CCSR_DO_NOT_RELOCATE
 #endif
 
 /* DDR Setup */
 #define CONFIG_FSL_DDR3
-#define CONFIG_DDR_RAW_TIMING
+#define CONFIG_SYS_DDR_RAW_TIMING
 #define CONFIG_DDR_SPD
 #define CONFIG_SYS_SPD_BUS_NUM 1
 #define SPD_EEPROM_ADDRESS 0x52
@@ -523,9 +523,6 @@
 
 /* Use the HUSH parser */
 #define CONFIG_SYS_HUSH_PARSER
-#ifdef CONFIG_SYS_HUSH_PARSER
-#define CONFIG_SYS_PROMPT_HUSH_PS2 "> "
-#endif
 
 /*
  * Pass open firmware flat tree
@@ -533,9 +530,6 @@
 #define CONFIG_OF_LIBFDT
 #define CONFIG_OF_BOARD_SETUP
 #define CONFIG_OF_STDOUT_VIA_ALIAS
-
-#define CONFIG_SYS_64BIT_VSPRINTF
-#define CONFIG_SYS_64BIT_STRTOUL
 
 /* new uImage format support */
 #define CONFIG_FIT
@@ -630,7 +624,6 @@
 #endif
 #define CONFIG_SYS_PCIE1_IO_SIZE	0x00010000	/* 64k */
 
-#define CONFIG_NET_MULTI
 #define CONFIG_PCI_PNP	/* do pci plug-and-play */
 #define CONFIG_E1000	/* Defind e1000 pci Ethernet card*/
 #define CONFIG_CMD_PCI
@@ -641,11 +634,6 @@
 #endif /* CONFIG_PCI */
 
 #if defined(CONFIG_TSEC_ENET)
-
-#ifndef CONFIG_NET_MULTI
-#define CONFIG_NET_MULTI
-#endif
-
 #define CONFIG_MII		/* MII PHY management */
 #define CONFIG_TSEC1
 #define CONFIG_TSEC1_NAME	"eTSEC1"
@@ -677,8 +665,9 @@
 
 #ifdef CONFIG_QE
 /* QE microcode/firmware address */
-#define CONFIG_SYS_QE_FW_ADDR		0xefec0000
-#define CONFIG_SYS_QE_FW_LENGTH		0x10000
+#define CONFIG_SYS_QE_FMAN_FW_IN_NOR
+#define CONFIG_SYS_QE_FMAN_FW_ADDR	0xefec0000
+#define CONFIG_SYS_QE_FMAN_FW_LENGTH	0x10000
 #endif /* CONFIG_QE */
 
 #ifdef CONFIG_P1025RDB
@@ -732,6 +721,7 @@
 #define CONFIG_ENV_SECT_SIZE	0x10000
 #elif defined(CONFIG_RAMBOOT_SDCARD)
 #define CONFIG_ENV_IS_IN_MMC
+#define CONFIG_FSL_FIXED_MMC_LOCATION
 #define CONFIG_ENV_SIZE		0x2000
 #define CONFIG_SYS_MMC_ENV_DEV	0
 #elif defined(CONFIG_NAND_U_BOOT)

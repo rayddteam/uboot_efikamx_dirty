@@ -26,24 +26,45 @@
  */
 #include <common.h>
 #include <command.h>
+#include <linux/compiler.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
-static void print_num(const char *, ulong);
+__maybe_unused
+static void print_num(const char *name, ulong value)
+{
+	printf("%-12s= 0x%08lX\n", name, value);
+}
 
-#if !(defined(CONFIG_ARM) || defined(CONFIG_M68K) || defined(CONFIG_SANDBOX)) \
-	|| defined(CONFIG_CMD_NET)
-#define HAVE_PRINT_ETH
-static void print_eth(int idx);
-#endif
+__maybe_unused
+static void print_eth(int idx)
+{
+	char name[10], *val;
+	if (idx)
+		sprintf(name, "eth%iaddr", idx);
+	else
+		strcpy(name, "ethaddr");
+	val = getenv(name);
+	if (!val)
+		val = "(not set)";
+	printf("%-12s= %s\n", name, val);
+}
 
-#if (!defined(CONFIG_ARM) && !defined(CONFIG_X86) && !defined(CONFIG_SANDBOX))
-#define HAVE_PRINT_LNUM
-static void print_lnum(const char *, u64);
-#endif
+__maybe_unused
+static void print_lnum(const char *name, u64 value)
+{
+	printf("%-12s= 0x%.8llX\n", name, value);
+}
+
+__maybe_unused
+static void print_mhz(const char *name, unsigned long hz)
+{
+	char buf[32];
+
+	printf("%-12s= %6s MHz\n", name, strmhz(buf, hz));
+}
 
 #if defined(CONFIG_PPC)
-static void print_mhz(const char *, unsigned long);
 
 int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
@@ -98,6 +119,14 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	print_mhz("pevfreq",		bd->bi_pevfreq);
 #endif
 
+#ifdef CONFIG_ENABLE_36BIT_PHYS
+#ifdef CONFIG_PHYS_64BIT
+	puts("addressing  = 36-bit\n");
+#else
+	puts("addressing  = 32-bit\n");
+#endif
+#endif
+
 	print_eth(0);
 #if defined(CONFIG_HAS_ETH1)
 	print_eth(1);
@@ -118,7 +147,7 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 #ifdef CONFIG_HERMES
 	print_mhz("ethspeed",		bd->bi_ethspeed);
 #endif
-	printf("IP addr     = %pI4\n", &bd->bi_ip_addr);
+	printf("IP addr     = %s\n", getenv("ipaddr"));
 	printf("baudrate    = %6ld bps\n", bd->bi_baudrate);
 	print_num("relocaddr", gd->relocaddr);
 	return 0;
@@ -143,7 +172,7 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 #if defined(CONFIG_CMD_NET)
 	print_eth(0);
-	printf("ip_addr     = %pI4\n", &bd->bi_ip_addr);
+	printf("ip_addr     = %s\n", getenv("ipaddr"));
 #endif
 
 	printf("baudrate    = %ld bps\n", bd->bi_baudrate);
@@ -167,7 +196,7 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 #endif
 #if defined(CONFIG_CMD_NET)
 	print_eth(0);
-	printf("ip_addr     = %pI4\n", &bd->bi_ip_addr);
+	printf("ip_addr     = %s\n", getenv("ipaddr"));
 #endif
 	printf("baudrate    = %ld bps\n", (ulong)bd->bi_baudrate);
 	return 0;
@@ -200,15 +229,13 @@ int do_bdinfo(cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 
 #if defined(CONFIG_CMD_NET)
 	print_eth(0);
-	printf("ip_addr     = %pI4\n", &bd->bi_ip_addr);
+	printf("ip_addr     = %s\n", getenv("ipaddr"));
 #endif
 	printf("baudrate               = %6ld bps\n", bd->bi_baudrate);
 	return 0;
 }
 
 #elif defined(CONFIG_M68K)
-
-static void print_mhz(const char *, unsigned long);
 
 int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
@@ -248,7 +275,7 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	print_eth(3);
 #endif
 
-	printf("ip_addr     = %pI4\n", &bd->bi_ip_addr);
+	printf("ip_addr     = %s\n", getenv("ipaddr"));
 #endif
 	printf("baudrate    = %ld bps\n", bd->bi_baudrate);
 
@@ -256,8 +283,6 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 }
 
 #elif defined(CONFIG_BLACKFIN)
-
-static void print_mhz(const char *, unsigned long);
 
 int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
@@ -278,7 +303,7 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	print_num("flashoffset",	(ulong)bd->bi_flashoffset);
 
 	print_eth(0);
-	printf("ip_addr     = %pI4\n", &bd->bi_ip_addr);
+	printf("ip_addr     = %s\n", getenv("ipaddr"));
 	printf("baudrate    = %d bps\n", bd->bi_baudrate);
 
 	return 0;
@@ -298,7 +323,7 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	print_num("flashoffset",	(ulong)bd->bi_flashoffset);
 
 	print_eth(0);
-	printf("ip_addr     = %pI4\n", &bd->bi_ip_addr);
+	printf("ip_addr     = %s\n", getenv("ipaddr"));
 	printf("baudrate    = %d bps\n", bd->bi_baudrate);
 
 	return 0;
@@ -318,7 +343,7 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	print_num("flashoffset",	(ulong)bd->bi_flashoffset);
 
 	print_eth(0);
-	printf("ip_addr     = %pI4\n", &bd->bi_ip_addr);
+	printf("ip_addr     = %s\n", getenv("ipaddr"));
 	printf("baudrate    = %lu bps\n", bd->bi_baudrate);
 
 	return 0;
@@ -342,7 +367,7 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 #if defined(CONFIG_CMD_NET)
 	print_eth(0);
-	printf("ip_addr     = %pI4\n", &bd->bi_ip_addr);
+	printf("ip_addr     = %s\n", getenv("ipaddr"));
 #endif
 	printf("baudrate    = %d bps\n", bd->bi_baudrate);
 #if !(defined(CONFIG_SYS_ICACHE_OFF) && defined(CONFIG_SYS_DCACHE_OFF))
@@ -353,6 +378,15 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	print_num("irq_sp", gd->irq_sp);	/* irq stack pointer */
 	print_num("sp start ", gd->start_addr_sp);
 	print_num("FB base  ", gd->fb_base);
+	/*
+	 * TODO: Currently only support for davinci SOC's is added.
+	 * Remove this check once all the board implement this.
+	 */
+#ifdef CONFIG_CLOCKS
+	printf("ARM frequency = %ld MHz\n", gd->bd->bi_arm_freq);
+	printf("DSP frequency = %ld MHz\n", gd->bd->bi_dsp_freq);
+	printf("DDR frequency = %ld MHz\n", gd->bd->bi_ddr_freq);
+#endif
 	return 0;
 }
 
@@ -369,15 +403,13 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 #if defined(CONFIG_CMD_NET)
 	print_eth(0);
-	printf("ip_addr     = %pI4\n", &bd->bi_ip_addr);
+	printf("ip_addr     = %s\n", getenv("ipaddr"));
 #endif
 	printf("baudrate    = %ld bps\n", (ulong)bd->bi_baudrate);
 	return 0;
 }
 
 #elif defined(CONFIG_X86)
-
-static void print_mhz(const char *, unsigned long);
 
 int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
@@ -404,7 +436,7 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 #if defined(CONFIG_CMD_NET)
 	print_eth(0);
-	printf("ip_addr     = %pI4\n", &bd->bi_ip_addr);
+	printf("ip_addr     = %s\n", getenv("ipaddr"));
 	print_mhz("ethspeed",	    bd->bi_ethspeed);
 #endif
 	printf("baudrate    = %d bps\n", bd->bi_baudrate);
@@ -429,7 +461,7 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 #if defined(CONFIG_CMD_NET)
 	print_eth(0);
-	printf("ip_addr     = %pI4\n", &bd->bi_ip_addr);
+	printf("ip_addr     = %s\n", getenv("ipaddr"));
 #endif
 	print_num("FB base  ", gd->fb_base);
 	return 0;
@@ -453,9 +485,31 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 #if defined(CONFIG_CMD_NET)
 	print_eth(0);
-	printf("ip_addr     = %pI4\n", &bd->bi_ip_addr);
+	printf("ip_addr     = %s\n", getenv("ipaddr"));
 #endif
 	printf("baudrate    = %d bps\n", bd->bi_baudrate);
+
+	return 0;
+}
+
+#elif defined(CONFIG_OPENRISC)
+
+int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+{
+	bd_t *bd = gd->bd;
+
+	print_num("mem start",		(ulong)bd->bi_memstart);
+	print_lnum("mem size",		(u64)bd->bi_memsize);
+	print_num("flash start",	(ulong)bd->bi_flashstart);
+	print_num("flash size",		(ulong)bd->bi_flashsize);
+	print_num("flash offset",	(ulong)bd->bi_flashoffset);
+
+#if defined(CONFIG_CMD_NET)
+	print_eth(0);
+	printf("ip_addr     = %s\n", getenv("ipaddr"));
+#endif
+
+	printf("baudrate    = %ld bps\n", bd->bi_baudrate);
 
 	return 0;
 }
@@ -463,46 +517,6 @@ int do_bdinfo(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 #else
  #error "a case for this architecture does not exist!"
 #endif
-
-static void print_num(const char *name, ulong value)
-{
-	printf("%-12s= 0x%08lX\n", name, value);
-}
-
-#ifdef HAVE_PRINT_ETH
-static void print_eth(int idx)
-{
-	char name[10], *val;
-	if (idx)
-		sprintf(name, "eth%iaddr", idx);
-	else
-		strcpy(name, "ethaddr");
-	val = getenv(name);
-	if (!val)
-		val = "(not set)";
-	printf("%-12s= %s\n", name, val);
-}
-#endif
-
-#ifdef HAVE_PRINT_LNUM
-static void print_lnum(const char *name, u64 value)
-{
-	printf("%-12s= 0x%.8llX\n", name, value);
-}
-#endif
-
-#if	defined(CONFIG_PPC) || \
-	defined(CONFIG_M68K) || \
-	defined(CONFIG_BLACKFIN) || \
-	defined(CONFIG_X86)
-static void print_mhz(const char *name, unsigned long hz)
-{
-	char buf[32];
-
-	printf("%-12s= %6s MHz\n", name, strmhz(buf, hz));
-}
-#endif	/* CONFIG_PPC */
-
 
 /* -------------------------------------------------------------------- */
 

@@ -29,9 +29,6 @@ LIB	= $(obj)libcommon.o
 ifndef CONFIG_SPL_BUILD
 COBJS-y += main.o
 COBJS-y += command.o
-ifndef CONFIG_SANDBOX
-COBJS-y += dlmalloc.o
-endif
 COBJS-y += exports.o
 COBJS-$(CONFIG_SYS_HUSH_PARSER) += hush.o
 COBJS-y += image.o
@@ -55,12 +52,13 @@ COBJS-$(CONFIG_ENV_IS_IN_EEPROM) += env_embedded.o
 XCOBJS-$(CONFIG_ENV_IS_IN_FLASH) += env_embedded.o
 COBJS-$(CONFIG_ENV_IS_IN_NVRAM) += env_embedded.o
 COBJS-$(CONFIG_ENV_IS_IN_FLASH) += env_flash.o
-COBJS-$(CONFIG_ENV_IS_IN_MG_DISK) += env_mgdisk.o
 COBJS-$(CONFIG_ENV_IS_IN_MMC) += env_mmc.o
+COBJS-$(CONFIG_ENV_IS_IN_FAT) += env_fat.o
 COBJS-$(CONFIG_ENV_IS_IN_NAND) += env_nand.o
 COBJS-$(CONFIG_ENV_IS_IN_NVRAM) += env_nvram.o
 COBJS-$(CONFIG_ENV_IS_IN_ONENAND) += env_onenand.o
 COBJS-$(CONFIG_ENV_IS_IN_SPI_FLASH) += env_sf.o
+COBJS-$(CONFIG_ENV_IS_IN_REMOTE) += env_remote.o
 COBJS-$(CONFIG_ENV_IS_NOWHERE) += env_nowhere.o
 
 # command
@@ -116,7 +114,6 @@ COBJS-$(CONFIG_ID_EEPROM) += cmd_mac.o
 COBJS-$(CONFIG_CMD_MD5SUM) += cmd_md5sum.o
 COBJS-$(CONFIG_CMD_MEMORY) += cmd_mem.o
 COBJS-$(CONFIG_CMD_MFSL) += cmd_mfsl.o
-COBJS-$(CONFIG_CMD_MG_DISK) += cmd_mgdisk.o
 COBJS-$(CONFIG_MII) += miiphyutil.o
 COBJS-$(CONFIG_CMD_MII) += miiphyutil.o
 COBJS-$(CONFIG_PHYLIB) += miiphyutil.o
@@ -152,6 +149,7 @@ COBJS-$(CONFIG_CMD_STRINGS) += cmd_strings.o
 COBJS-$(CONFIG_CMD_TERMINAL) += cmd_terminal.o
 COBJS-$(CONFIG_CMD_TIME) += cmd_time.o
 COBJS-$(CONFIG_SYS_HUSH_PARSER) += cmd_test.o
+COBJS-$(CONFIG_CMD_TPM) += cmd_tpm.o
 COBJS-$(CONFIG_CMD_TSI148) += cmd_tsi148.o
 COBJS-$(CONFIG_CMD_UBI) += cmd_ubi.o
 COBJS-$(CONFIG_CMD_UBIFS) += cmd_ubifs.o
@@ -159,11 +157,12 @@ COBJS-$(CONFIG_CMD_UNIVERSE) += cmd_universe.o
 COBJS-$(CONFIG_CMD_UNZIP) += cmd_unzip.o
 ifdef CONFIG_CMD_USB
 COBJS-y += cmd_usb.o
-COBJS-y += usb.o
+COBJS-y += usb.o usb_hub.o
 COBJS-$(CONFIG_USB_STORAGE) += usb_storage.o
 endif
 COBJS-$(CONFIG_CMD_XIMG) += cmd_ximg.o
 COBJS-$(CONFIG_YAFFS2) += cmd_yaffs2.o
+COBJS-$(CONFIG_CMD_SPL) += cmd_spl.o
 
 # others
 ifdef CONFIG_DDR_SPD
@@ -174,6 +173,7 @@ SPD := y
 endif
 COBJS-$(SPD) += ddr_spd.o
 COBJS-$(CONFIG_HWCONFIG) += hwconfig.o
+COBJS-$(CONFIG_BOOTSTAGE) += bootstage.o
 COBJS-$(CONFIG_CONSOLE_MUX) += iomux.o
 COBJS-y += flash.o
 COBJS-$(CONFIG_CMD_KGDB) += kgdb.o kgdb_stubs.o
@@ -186,7 +186,11 @@ COBJS-$(CONFIG_UPDATE_TFTP) += update.o
 COBJS-$(CONFIG_USB_KEYBOARD) += usb_kbd.o
 endif
 
+ifdef CONFIG_SPL_BUILD
+COBJS-$(CONFIG_SPL_YMODEM_SUPPORT) += xyzModem.o
+endif
 COBJS-y += console.o
+COBJS-y += dlmalloc.o
 COBJS-y += memsize.o
 COBJS-y += stdio.o
 

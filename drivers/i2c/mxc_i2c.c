@@ -74,6 +74,10 @@ struct mxc_i2c_regs {
 #define I2C_BASE        I2C2_BASE_ADDR
 #elif defined(CONFIG_SYS_I2C_MX35_PORT1)
 #define I2C_BASE	I2C_BASE_ADDR
+#elif defined(CONFIG_SYS_I2C_MX35_PORT2)
+#define I2C_BASE	I2C2_BASE_ADDR
+#elif defined(CONFIG_SYS_I2C_MX35_PORT3)
+#define I2C_BASE	I2C3_BASE_ADDR
 #else
 #error "define CONFIG_SYS_I2C_MX<Processor>_PORTx to use the mx I2C driver"
 #endif
@@ -103,7 +107,7 @@ static uint8_t i2c_imx_get_clk(unsigned int rate)
 {
 	unsigned int i2c_clk_rate;
 	unsigned int div;
-	int i;
+	u8 clk_div;
 
 #if defined(CONFIG_MX31)
 	struct clock_control_regs *sc_regs =
@@ -118,14 +122,19 @@ static uint8_t i2c_imx_get_clk(unsigned int rate)
 	i2c_clk_rate = mxc_get_clock(MXC_IPG_PERCLK);
 	div = (i2c_clk_rate + rate - 1) / rate;
 	if (div < i2c_clk_div[0][0])
-		i = 0;
+		clk_div = 0;
 	else if (div > i2c_clk_div[ARRAY_SIZE(i2c_clk_div) - 1][0])
-		i = ARRAY_SIZE(i2c_clk_div) - 1;
+		clk_div = ARRAY_SIZE(i2c_clk_div) - 1;
 	else
-		for (i = 0; i2c_clk_div[i][0] < div; i++)
+		for (clk_div = 0; i2c_clk_div[clk_div][0] < div; clk_div++)
 			;
 
+<<<<<<< HEAD
+	/* Store divider value */
+	return clk_div;
+=======
 	return i2c_clk_div[i][1];
+>>>>>>> 456fca9... I2C: Fix mxc_i2c.c problem on imx31_phycore
 }
 
 /*
@@ -145,12 +154,41 @@ void i2c_reset(void)
 void i2c_init(int speed, int unused)
 {
 	struct mxc_i2c_regs *i2c_regs = (struct mxc_i2c_regs *)I2C_BASE;
+<<<<<<< HEAD
+	u8 clk_idx = i2c_imx_get_clk(speed);
+	u8 idx = i2c_clk_div[clk_idx][1];
+=======
 	u8 idx = i2c_imx_get_clk(speed);
+>>>>>>> 456fca9... I2C: Fix mxc_i2c.c problem on imx31_phycore
 
 	/* Store divider value */
 	writeb(idx, &i2c_regs->ifdr);
 
 	i2c_reset();
+}
+
+/*
+ * Set I2C Speed
+ */
+int i2c_set_bus_speed(unsigned int speed)
+{
+	i2c_init(speed, 0);
+	return 0;
+}
+
+/*
+ * Get I2C Speed
+ */
+unsigned int i2c_get_bus_speed(void)
+{
+	struct mxc_i2c_regs *i2c_regs = (struct mxc_i2c_regs *)I2C_BASE;
+	u8 clk_idx = readb(&i2c_regs->ifdr);
+	u8 clk_div;
+
+	for (clk_div = 0; i2c_clk_div[clk_div][1] != clk_idx; clk_div++)
+		;
+
+	return mxc_get_clock(MXC_IPG_PERCLK) / i2c_clk_div[clk_div][0];
 }
 
 /*
@@ -219,7 +257,12 @@ int i2c_imx_start(void)
 	unsigned int temp = 0;
 	int result;
 	int speed = i2c_get_bus_speed();
+<<<<<<< HEAD
+	u8 clk_idx = i2c_imx_get_clk(speed);
+	u8 idx = i2c_clk_div[clk_idx][1];
+=======
 	u8 idx = i2c_imx_get_clk(speed);
+>>>>>>> 456fca9... I2C: Fix mxc_i2c.c problem on imx31_phycore
 
 	/* Store divider value */
 	writeb(idx, &i2c_regs->ifdr);

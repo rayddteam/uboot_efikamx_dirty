@@ -283,7 +283,6 @@
  * Miscellaneous configurable options
  *----------------------------------------------------------------------*/
 #define CONFIG_SYS_HUSH_PARSER
-#define CONFIG_SYS_PROMPT_HUSH_PS2	"> "
 
 #define CONFIG_SYS_LONGHELP			/* undef to save memory		*/
 #define CONFIG_SYS_PROMPT	        "=> "	/* Monitor Command Prompt	*/
@@ -446,5 +445,9 @@
 #endif
 
 #define L2_ENABLE	(L2_INIT | L2CR_L2E)
+
+#ifndef __ASSEMBLY__
+#include <../board/Marvell/include/core.h>
+#endif
 
 #endif	/* __CONFIG_H */

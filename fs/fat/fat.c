@@ -31,6 +31,8 @@
 #include <fat.h>
 #include <asm/byteorder.h>
 #include <part.h>
+#include <malloc.h>
+#include <linux/compiler.h>
 
 /*
  * Convert a string to lowercase.
@@ -43,92 +45,83 @@ static void downcase (char *str)
 	}
 }
 
-static block_dev_desc_t *cur_dev = NULL;
+static block_dev_desc_t *cur_dev;
+static unsigned int cur_part_nr;
+static disk_partition_t cur_part_info;
 
-static unsigned long part_offset = 0;
-
-static int cur_part = 1;
-
-#define DOS_PART_TBL_OFFSET	0x1be
-#define DOS_PART_MAGIC_OFFSET	0x1fe
+#define DOS_BOOT_MAGIC_OFFSET	0x1fe
 #define DOS_FS_TYPE_OFFSET	0x36
 #define DOS_FS32_TYPE_OFFSET	0x52
 
-static int disk_read (__u32 startblock, __u32 getsize, __u8 * bufptr)
+static int disk_read(__u32 block, __u32 nr_blocks, void *buf)
 {
-	if (cur_dev == NULL)
+	if (!cur_dev || !cur_dev->block_read)
 		return -1;
 
-	startblock += part_offset;
-
-	if (cur_dev->block_read) {
-		return cur_dev->block_read(cur_dev->dev, startblock, getsize,
-					   (unsigned long *) bufptr);
-	}
-	return -1;
+	return cur_dev->block_read(cur_dev->dev,
+			cur_part_info.start + block, nr_blocks, buf);
 }
 
 int fat_register_device (block_dev_desc_t * dev_desc, int part_no)
 {
-	unsigned char buffer[dev_desc->blksz];
-	disk_partition_t info;
+	ALLOC_CACHE_ALIGN_BUFFER(unsigned char, buffer, dev_desc->blksz);
 
-	if (!dev_desc->block_read)
-		return -1;
+	/* First close any currently found FAT filesystem */
+	cur_dev = NULL;
 
-	cur_dev = dev_desc;
-	/* check if we have a MBR (on floppies we have only a PBR) */
-	if (dev_desc->block_read(dev_desc->dev, 0, 1, (ulong *)buffer) != 1) {
-		printf("** Can't read from device %d **\n",
-			dev_desc->dev);
-		return -1;
-	}
-	if (buffer[DOS_PART_MAGIC_OFFSET] != 0x55 ||
-	    buffer[DOS_PART_MAGIC_OFFSET + 1] != 0xaa) {
-		/* no signature found */
-		return -1;
-	}
 #if (defined(CONFIG_CMD_IDE) || \
-     defined(CONFIG_CMD_MG_DISK) || \
      defined(CONFIG_CMD_SATA) || \
      defined(CONFIG_CMD_SCSI) || \
      defined(CONFIG_CMD_USB) || \
      defined(CONFIG_MMC) || \
      defined(CONFIG_SYSTEMACE) )
-	/* First we assume there is a MBR */
-	if (!get_partition_info(dev_desc, part_no, &info)) {
-		part_offset = info.start;
-		cur_part = part_no;
-	} else if ((strncmp((char *)&buffer[DOS_FS_TYPE_OFFSET], "FAT", 3) == 0) ||
-		   (strncmp((char *)&buffer[DOS_FS32_TYPE_OFFSET], "FAT32", 5) == 0)) {
-		/* ok, we assume we are on a PBR only */
-		cur_part = 1;
-		part_offset = 0;
-	} else {
-		printf("** Partition %d not valid on device %d **\n",
-			part_no, dev_desc->dev);
+
+	/* Read the partition table, if present */
+	if (!get_partition_info(dev_desc, part_no, &cur_part_info)) {
+		cur_dev = dev_desc;
+		cur_part_nr = part_no;
+	}
+#endif
+
+	/* Otherwise it might be a superfloppy (whole-disk FAT filesystem) */
+	if (!cur_dev) {
+		if (part_no != 1) {
+			printf("** Partition %d not valid on device %d **\n",
+					part_no, dev_desc->dev);
+			return -1;
+		}
+
+		cur_dev = dev_desc;
+		cur_part_nr = 1;
+		cur_part_info.start = 0;
+		cur_part_info.size = dev_desc->lba;
+		cur_part_info.blksz = dev_desc->blksz;
+		memset(cur_part_info.name, 0, sizeof(cur_part_info.name));
+		memset(cur_part_info.type, 0, sizeof(cur_part_info.type));
+	}
+
+	/* Make sure it has a valid FAT header */
+	if (disk_read(0, 1, buffer) != 1) {
+		cur_dev = NULL;
 		return -1;
 	}
 
-#else
-	if ((strncmp((char *)&buffer[DOS_FS_TYPE_OFFSET], "FAT", 3) == 0) ||
-	    (strncmp((char *)&buffer[DOS_FS32_TYPE_OFFSET], "FAT32", 5) == 0)) {
-		/* ok, we assume we are on a PBR only */
-		cur_part = 1;
-		part_offset = 0;
-		info.start = part_offset;
-	} else {
-		/* FIXME we need to determine the start block of the
-		 * partition where the DOS FS resides. This can be done
-		 * by using the get_partition_info routine. For this
-		 * purpose the libpart must be included.
-		 */
-		part_offset = 32;
-		cur_part = 1;
+	/* Check if it's actually a DOS volume */
+	if (memcmp(buffer + DOS_BOOT_MAGIC_OFFSET, "\x55\xAA", 2)) {
+		cur_dev = NULL;
+		return -1;
 	}
-#endif
-	return 0;
+
+	/* Check for FAT12/FAT16/FAT32 filesystem */
+	if (!memcmp(buffer + DOS_FS_TYPE_OFFSET, "FAT", 3))
+		return 0;
+	if (!memcmp(buffer + DOS_FS32_TYPE_OFFSET, "FAT32", 5))
+		return 0;
+
+	cur_dev = NULL;
+	return -1;
 }
+
 
 /*
  * Get the first occurence of a directory delimiter ('/' or '\') in a string.
@@ -282,6 +275,8 @@ get_cluster (fsdata *mydata, __u32 clustnum, __u8 *buffer,
 {
 	__u32 idx = 0;
 	__u32 startsect;
+	__u32 nr_sect;
+	int ret;
 
 	if (clustnum > 0) {
 		startsect = mydata->data_begin +
@@ -292,16 +287,19 @@ get_cluster (fsdata *mydata, __u32 clustnum, __u8 *buffer,
 
 	debug("gc - clustnum: %d, startsect: %d\n", clustnum, startsect);
 
-	if (disk_read(startsect, size / mydata->sect_size, buffer) < 0) {
-		debug("Error reading data\n");
+	nr_sect = size / mydata->sect_size;
+	ret = disk_read(startsect, nr_sect, buffer);
+	if (ret != nr_sect) {
+		debug("Error reading data (got %d)\n", ret);
 		return -1;
 	}
 	if (size % mydata->sect_size) {
-		__u8 tmpbuf[mydata->sect_size];
+		ALLOC_CACHE_ALIGN_BUFFER(__u8, tmpbuf, mydata->sect_size);
 
 		idx = size / mydata->sect_size;
-		if (disk_read(startsect + idx, 1, tmpbuf) < 0) {
-			debug("Error reading data\n");
+		ret = disk_read(startsect + idx, 1, tmpbuf);
+		if (ret != 1) {
+			debug("Error reading data (got %d)\n", ret);
 			return -1;
 		}
 		buffer += idx * mydata->sect_size;
@@ -431,8 +429,8 @@ static int slot2str (dir_slot *slotptr, char *l_name, int *idx)
  * into 'retdent'
  * Return 0 on success, -1 otherwise.
  */
-__attribute__ ((__aligned__ (__alignof__ (dir_entry))))
-__u8 get_vfatname_block[MAX_CLUSTSIZE];
+__u8 get_vfatname_block[MAX_CLUSTSIZE]
+	__aligned(ARCH_DMA_MINALIGN);
 
 static int
 get_vfatname (fsdata *mydata, int curclust, __u8 *cluster,
@@ -536,8 +534,8 @@ static __u8 mkcksum (const char *str)
  * Get the directory entry associated with 'filename' from the directory
  * starting at 'startsect'
  */
-__attribute__ ((__aligned__ (__alignof__ (dir_entry))))
-__u8 get_dentfromdir_block[MAX_CLUSTSIZE];
+__u8 get_dentfromdir_block[MAX_CLUSTSIZE]
+	__aligned(ARCH_DMA_MINALIGN);
 
 static dir_entry *get_dentfromdir (fsdata *mydata, int startsect,
 				   char *filename, dir_entry *retdent,
@@ -572,8 +570,8 @@ static dir_entry *get_dentfromdir (fsdata *mydata, int startsect,
 			}
 			if ((dentptr->attr & ATTR_VOLUME)) {
 #ifdef CONFIG_SUPPORT_VFAT
-				if ((dentptr->attr & ATTR_VFAT) &&
-				    (dentptr-> name[0] & LAST_LONG_ENTRY_MASK)) {
+				if ((dentptr->attr & ATTR_VFAT) == ATTR_VFAT &&
+				    (dentptr->name[0] & LAST_LONG_ENTRY_MASK)) {
 					prevcksum = ((dir_slot *)dentptr)->alias_checksum;
 					get_vfatname(mydata, curclust,
 						     get_dentfromdir_block,
@@ -630,6 +628,7 @@ static dir_entry *get_dentfromdir (fsdata *mydata, int startsect,
 			}
 #ifdef CONFIG_SUPPORT_VFAT
 			if (dols && mkcksum(dentptr->name) == prevcksum) {
+				prevcksum = 0xffff;
 				dentptr++;
 				continue;
 			}
@@ -711,7 +710,7 @@ read_bootsectandvi (boot_sector *bs, volume_info *volinfo, int *fatsize)
 		return -1;
 	}
 
-	block = malloc(cur_dev->blksz);
+	block = memalign(ARCH_DMA_MINALIGN, cur_dev->blksz);
 	if (block == NULL) {
 		debug("Error: allocating block\n");
 		return -1;
@@ -767,8 +766,8 @@ exit:
 	return ret;
 }
 
-__attribute__ ((__aligned__ (__alignof__ (dir_entry))))
-__u8 do_fat_read_block[MAX_CLUSTSIZE];
+__u8 do_fat_read_block[MAX_CLUSTSIZE]
+	__aligned(ARCH_DMA_MINALIGN);
 
 long
 do_fat_read (const char *filename, void *buffer, unsigned long maxsize,
@@ -810,6 +809,11 @@ do_fat_read (const char *filename, void *buffer, unsigned long maxsize,
 
 	mydata->sect_size = (bs.sector_size[1] << 8) + bs.sector_size[0];
 	mydata->clust_size = bs.cluster_size;
+	if (mydata->sect_size != cur_part_info.blksz) {
+		printf("Error: FAT sector size mismatch (fs=%hu, dev=%lu)\n",
+				mydata->sect_size, cur_part_info.blksz);
+		return -1;
+	}
 
 	if (mydata->fatsize == 32) {
 		mydata->data_begin = mydata->rootdir_sect -
@@ -825,7 +829,7 @@ do_fat_read (const char *filename, void *buffer, unsigned long maxsize,
 	}
 
 	mydata->fatbufnum = -1;
-	mydata->fatbuf = malloc(FATBUFSIZE);
+	mydata->fatbuf = memalign(ARCH_DMA_MINALIGN, FATBUFSIZE);
 	if (mydata->fatbuf == NULL) {
 		debug("Error: allocating memory\n");
 		return -1;
@@ -873,7 +877,7 @@ do_fat_read (const char *filename, void *buffer, unsigned long maxsize,
 	while (1) {
 		int i;
 
-		debug("FAT read sect=%d, clust_size=%d, DIRENTSPERBLOCK=%d\n",
+		debug("FAT read sect=%d, clust_size=%d, DIRENTSPERBLOCK=%zd\n",
 			cursect, mydata->clust_size, DIRENTSPERBLOCK);
 
 		if (disk_read(cursect,
@@ -897,7 +901,7 @@ do_fat_read (const char *filename, void *buffer, unsigned long maxsize,
 			}
 			if ((dentptr->attr & ATTR_VOLUME)) {
 #ifdef CONFIG_SUPPORT_VFAT
-				if ((dentptr->attr & ATTR_VFAT) &&
+				if ((dentptr->attr & ATTR_VFAT) == ATTR_VFAT &&
 				    (dentptr->name[0] & LAST_LONG_ENTRY_MASK)) {
 					prevcksum =
 						((dir_slot *)dentptr)->alias_checksum;
@@ -960,6 +964,7 @@ do_fat_read (const char *filename, void *buffer, unsigned long maxsize,
 #ifdef CONFIG_SUPPORT_VFAT
 			else if (dols == LS_ROOT &&
 				 mkcksum(dentptr->name) == prevcksum) {
+				prevcksum = 0xffff;
 				dentptr++;
 				continue;
 			}
@@ -1122,7 +1127,6 @@ int file_fat_detectfs (void)
 	}
 
 #if defined(CONFIG_CMD_IDE) || \
-    defined(CONFIG_CMD_MG_DISK) || \
     defined(CONFIG_CMD_SATA) || \
     defined(CONFIG_CMD_SCSI) || \
     defined(CONFIG_CMD_USB) || \
@@ -1167,7 +1171,7 @@ int file_fat_detectfs (void)
 	vol_label[11] = '\0';
 	volinfo.fs_type[5] = '\0';
 
-	printf("Partition %d: Filesystem: %s \"%s\"\n", cur_part,
+	printf("Partition %d: Filesystem: %s \"%s\"\n", cur_part_nr,
 		volinfo.fs_type, vol_label);
 
 	return 0;

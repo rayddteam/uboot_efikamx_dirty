@@ -96,24 +96,24 @@ static int format_mac_pxe(char *outbuf, size_t outbuf_len)
  * in. If bootfile isn't defined in the environment, return NULL, which should
  * be interpreted as "don't prepend anything to paths".
  */
-static int get_bootfile_path(char *bootfile_path, size_t bootfile_path_size)
+static int get_bootfile_path(const char *file_path, char *bootfile_path,
+			     size_t bootfile_path_size)
 {
 	char *bootfile, *last_slash;
-	size_t path_len;
+	size_t path_len = 0;
+
+	if (file_path[0] == '/')
+		goto ret;
 
 	bootfile = from_env("bootfile");
 
-	if (!bootfile) {
-		bootfile_path[0] = '\0';
-		return 1;
-	}
+	if (!bootfile)
+		goto ret;
 
 	last_slash = strrchr(bootfile, '/');
 
-	if (last_slash == NULL) {
-		bootfile_path[0] = '\0';
-		return 1;
-	}
+	if (last_slash == NULL)
+		goto ret;
 
 	path_len = (last_slash - bootfile) + 1;
 
@@ -126,10 +126,56 @@ static int get_bootfile_path(char *bootfile_path, size_t bootfile_path_size)
 
 	strncpy(bootfile_path, bootfile, path_len);
 
+ ret:
 	bootfile_path[path_len] = '\0';
 
 	return 1;
 }
+
+static int (*do_getfile)(char *file_path, char *file_addr);
+
+static int do_get_tftp(char *file_path, char *file_addr)
+{
+	char *tftp_argv[] = {"tftp", NULL, NULL, NULL};
+
+	tftp_argv[1] = file_addr;
+	tftp_argv[2] = file_path;
+
+	if (do_tftpb(NULL, 0, 3, tftp_argv))
+		return -ENOENT;
+
+	return 1;
+}
+
+static char *fs_argv[5];
+
+static int do_get_ext2(char *file_path, char *file_addr)
+{
+#ifdef CONFIG_CMD_EXT2
+	fs_argv[0] = "ext2load";
+	fs_argv[3] = file_addr;
+	fs_argv[4] = file_path;
+
+	if (!do_ext2load(NULL, 0, 5, fs_argv))
+		return 1;
+#endif
+	return -ENOENT;
+}
+
+static int do_get_fat(char *file_path, char *file_addr)
+{
+#ifdef CONFIG_CMD_FAT
+	fs_argv[0] = "fatload";
+	fs_argv[3] = file_addr;
+	fs_argv[4] = file_path;
+
+	if (!do_fat_fsload(NULL, 0, 5, fs_argv))
+		return 1;
+#endif
+	return -ENOENT;
+}
+
+
 
 /*
  * As in pxelinux, paths to files referenced from files we retrieve are
@@ -144,10 +190,9 @@ static int get_relfile(char *file_path, void *file_addr)
 	size_t path_len;
 	char relfile[MAX_TFTP_PATH_LEN+1];
 	char addr_buf[10];
-	char *tftp_argv[] = {"tftp", NULL, NULL, NULL};
 	int err;
 
-	err = get_bootfile_path(relfile, sizeof(relfile));
+	err = get_bootfile_path(file_path, relfile, sizeof(relfile));
 
 	if (err < 0)
 		return err;
@@ -169,13 +214,7 @@ static int get_relfile(char *file_path, void *file_addr)
 
 	sprintf(addr_buf, "%p", file_addr);
 
-	tftp_argv[1] = addr_buf;
-	tftp_argv[2] = relfile;
-
-	if (do_tftpb(NULL, 0, 3, tftp_argv))
-		return -ENOENT;
-
-	return 1;
+	return do_getfile(relfile, addr_buf);
 }
 
 /*
@@ -318,11 +357,13 @@ static int
 do_pxe_get(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	char *pxefile_addr_str;
-	void *pxefile_addr_r;
+	unsigned long pxefile_addr_r;
 	int err;
 
+	do_getfile = do_get_tftp;
+
 	if (argc != 1)
-		return cmd_usage(cmdtp);
+		return CMD_RET_USAGE;
 
 
 	pxefile_addr_str = from_env("pxefile_addr_r");
@@ -339,10 +380,10 @@ do_pxe_get(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	 * Keep trying paths until we successfully get a file we're looking
 	 * for.
 	 */
-	if (pxe_uuid_path(pxefile_addr_r) > 0
-		|| pxe_mac_path(pxefile_addr_r) > 0
-		|| pxe_ipaddr_paths(pxefile_addr_r) > 0
-		|| get_pxelinux_path("default", pxefile_addr_r) > 0) {
+	if (pxe_uuid_path((void *)pxefile_addr_r) > 0
+		|| pxe_mac_path((void *)pxefile_addr_r) > 0
+		|| pxe_ipaddr_paths((void *)pxefile_addr_r) > 0
+		|| get_pxelinux_path("default", (void *)pxefile_addr_r) > 0) {
 
 		printf("Config file found\n");
 
@@ -363,7 +404,7 @@ do_pxe_get(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
  */
 static int get_relfile_envaddr(char *file_path, char *envaddr_name)
 {
-	void *file_addr;
+	unsigned long file_addr;
 	char *envaddr;
 
 	envaddr = from_env(envaddr_name);
@@ -371,10 +412,10 @@ static int get_relfile_envaddr(char *file_path, char *envaddr_name)
 	if (!envaddr)
 		return -ENOENT;
 
-	if (strict_strtoul(envaddr, 16, (unsigned long *)&file_addr) < 0)
+	if (strict_strtoul(envaddr, 16, &file_addr) < 0)
 		return -EINVAL;
 
-	return get_relfile(file_path, file_addr);
+	return get_relfile(file_path, (void *)file_addr);
 }
 
 /*
@@ -409,6 +450,7 @@ static int get_relfile_envaddr(char *file_path, char *envaddr_name)
  */
 struct pxe_label {
 	char *name;
+	char *menu;
 	char *kernel;
 	char *append;
 	char *initrd;
@@ -491,17 +533,18 @@ static void label_destroy(struct pxe_label *label)
 static void label_print(void *data)
 {
 	struct pxe_label *label = data;
+	const char *c = label->menu ? label->menu : label->kernel;
 
-	printf("Label: %s\n", label->name);
+	printf("%s:\t%s\n", label->name, c);
 
 	if (label->kernel)
-		printf("\tkernel: %s\n", label->kernel);
+		printf("\t\tkernel: %s\n", label->kernel);
 
 	if (label->append)
-		printf("\tappend: %s\n", label->append);
+		printf("\t\tappend: %s\n", label->append);
 
 	if (label->initrd)
-		printf("\tinitrd: %s\n", label->initrd);
+		printf("\t\tinitrd: %s\n", label->initrd);
 }
 
 /*
@@ -537,7 +580,7 @@ static int label_localboot(struct pxe_label *label)
 
 	printf("running: %s\n", dupcmd);
 
-	ret = run_command2(dupcmd, 0);
+	ret = run_command(dupcmd, 0);
 
 	free(dupcmd);
 
@@ -626,6 +669,7 @@ enum token_type {
 	T_TIMEOUT,
 	T_LABEL,
 	T_KERNEL,
+	T_LINUX,
 	T_APPEND,
 	T_INITRD,
 	T_LOCALBOOT,
@@ -654,6 +698,7 @@ static const struct token keywords[] = {
 	{"prompt", T_PROMPT},
 	{"label", T_LABEL},
 	{"kernel", T_KERNEL},
+	{"linux", T_LINUX},
 	{"localboot", T_LOCALBOOT},
 	{"append", T_APPEND},
 	{"initrd", T_INITRD},
@@ -918,7 +963,7 @@ static int parse_menu(char **c, struct pxe_menu *cfg, char *b, int nest_level)
 {
 	struct token t;
 	char *s = *c;
-	int err;
+	int err = 0;
 
 	get_token(c, &t, L_KEYWORD);
 
@@ -970,6 +1015,9 @@ static int parse_label_menu(char **c, struct pxe_menu *cfg,
 			return -ENOMEM;
 
 		break;
+	case T_LABEL:
+		parse_sliteral(c, &label->menu);
+		break;
 	default:
 		printf("Ignoring malformed menu command: %.*s\n",
 				(int)(*c - s), s);
@@ -991,6 +1039,7 @@ static int parse_label_menu(char **c, struct pxe_menu *cfg,
 static int parse_label(char **c, struct pxe_menu *cfg)
 {
 	struct token t;
+	int len;
 	char *s = *c;
 	struct pxe_label *label;
 	int err;
@@ -1019,15 +1068,28 @@ static int parse_label(char **c, struct pxe_menu *cfg)
 			break;
 
 		case T_KERNEL:
+		case T_LINUX:
 			err = parse_sliteral(c, &label->kernel);
 			break;
 
 		case T_APPEND:
 			err = parse_sliteral(c, &label->append);
+			if (label->initrd)
+				break;
+			s = strstr(label->append, "initrd=");
+			if (!s)
+				break;
+			s += 7;
+			len = (int)(strchr(s, ' ') - s);
+			label->initrd = malloc(len + 1);
+			strncpy(label->initrd, s, len);
+			label->initrd[len] = '\0';
+
 			break;
 
 		case T_INITRD:
-			err = parse_sliteral(c, &label->initrd);
+			if (!label->initrd)
+				err = parse_sliteral(c, &label->initrd);
 			break;
 
 		case T_LOCALBOOT:
@@ -1108,6 +1170,11 @@ static int parse_pxefile_top(char *p, struct pxe_menu *cfg, int nest_level)
 				cfg->default_label = label_name;
 			}
 
+			break;
+
+		case T_INCLUDE:
+			err = handle_include(&p, b + ALIGN(strlen(b), 4), cfg,
+							nest_level + 1);
 			break;
 
 		case T_PROMPT:
@@ -1273,10 +1340,21 @@ static void handle_pxe_menu(struct pxe_menu *cfg)
 
 	menu_destroy(m);
 
-	if (err < 1)
-		return;
+	/*
+	 * err == 1 means we got a choice back from menu_get_choice.
+	 *
+	 * err == -ENOENT if the menu was setup to select the default but no
+	 * default was set. in that case, we should continue trying to boot
+	 * labels that haven't been attempted yet.
+	 *
+	 * otherwise, the user interrupted or there was some other error and
+	 * we give up.
+	 */
 
-	label_boot(choice);
+	if (err == 1)
+		label_boot(choice);
+	else if (err != -ENOENT)
+		return;
 
 	boot_unattempted_labels(cfg);
 }
@@ -1293,6 +1371,8 @@ do_pxe_boot(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	struct pxe_menu *cfg;
 	char *pxefile_addr_str;
 
+	do_getfile = do_get_tftp;
+
 	if (argc == 1) {
 		pxefile_addr_str = from_env("pxefile_addr_r");
 		if (!pxefile_addr_str)
@@ -1301,7 +1381,7 @@ do_pxe_boot(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	} else if (argc == 2) {
 		pxefile_addr_str = argv[1];
 	} else {
-		return cmd_usage(cmdtp);
+		return CMD_RET_USAGE;
 	}
 
 	if (strict_strtoul(pxefile_addr_str, 16, &pxefile_addr_r) < 0) {
@@ -1333,7 +1413,7 @@ int do_pxe(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	cmd_tbl_t *cp;
 
 	if (argc < 2)
-		return cmd_usage(cmdtp);
+		return CMD_RET_USAGE;
 
 	/* drop initial "pxe" arg */
 	argc--;
@@ -1344,7 +1424,7 @@ int do_pxe(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	if (cp)
 		return cp->cmd(cmdtp, flag, argc, argv);
 
-	return cmd_usage(cmdtp);
+	return CMD_RET_USAGE;
 }
 
 U_BOOT_CMD(
@@ -1352,4 +1432,87 @@ U_BOOT_CMD(
 	"commands to get and boot from pxe files",
 	"get - try to retrieve a pxe file using tftp\npxe "
 	"boot [pxefile_addr_r] - boot from the pxe file at pxefile_addr_r\n"
+);
+
+/*
+ * Boots a system using a local disk syslinux/extlinux file
+ *
+ * Returns 0 on success, 1 on error.
+ */
+int do_sysboot(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+{
+	unsigned long pxefile_addr_r;
+	struct pxe_menu *cfg;
+	char *pxefile_addr_str;
+	char *filename;
+	int prompt = 0;
+
+	if (strstr(argv[1], "-p")) {
+		prompt = 1;
+		argc--;
+		argv++;
+	}
+
+	if (argc < 4)
+		return cmd_usage(cmdtp);
+
+	if (argc < 5) {
+		pxefile_addr_str = from_env("pxefile_addr_r");
+		if (!pxefile_addr_str)
+			return 1;
+	} else {
+		pxefile_addr_str = argv[4];
+	}
+
+	if (argc < 6)
+		filename = getenv("bootfile");
+	else {
+		filename = argv[5];
+		setenv("bootfile", filename);
+	}
+
+	if (strstr(argv[3], "ext2"))
+		do_getfile = do_get_ext2;
+	else if (strstr(argv[3], "fat"))
+		do_getfile = do_get_fat;
+	else {
+		printf("Invalid filesystem: %s\n", argv[3]);
+		return 1;
+	}
+	fs_argv[1] = argv[1];
+	fs_argv[2] = argv[2];
+
+	if (strict_strtoul(pxefile_addr_str, 16, &pxefile_addr_r) < 0) {
+		printf("Invalid pxefile address: %s\n", pxefile_addr_str);
+		return 1;
+	}
+
+	if (get_pxe_file(filename, (void *)pxefile_addr_r) < 0) {
+		printf("Error reading config file\n");
+		return 1;
+	}
+
+	cfg = parse_pxefile((char *)(pxefile_addr_r));
+
+	if (cfg == NULL) {
+		printf("Error parsing config file\n");
+		return 1;
+	}
+
+	if (prompt)
+		cfg->prompt = 1;
+
+	handle_pxe_menu(cfg);
+
+	destroy_pxe_menu(cfg);
+
+	return 0;
+}
+
+U_BOOT_CMD(
+	sysboot, 7, 1, do_sysboot,
+	"command to get and boot from syslinux files",
+	"[-p] <interface> <dev[:part]> <ext2|fat> [addr] [filename]\n"
+	"    - load and parse syslinux menu file 'filename' from ext2 or fat\n"
+	"      filesystem on 'dev' on 'interface' to address 'addr'"
 );

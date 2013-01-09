@@ -44,6 +44,10 @@
 
 #define CONFIG_SYS_TEXT_BASE		0x97800000
 
+#define	CONFIG_L2_OFF
+#define	CONFIG_SYS_ICACHE_OFF
+#define	CONFIG_SYS_DCACHE_OFF
+
 /*
  * Bootloader Components Configuration
  */
@@ -53,6 +57,8 @@
 #define CONFIG_CMD_FAT
 #define CONFIG_CMD_EXT2
 #define CONFIG_CMD_IDE
+#define CONFIG_CMD_NET
+#define CONFIG_CMD_DATE
 #undef CONFIG_CMD_IMLS
 
 /*
@@ -76,19 +82,18 @@
 /*
  * Size of malloc() pool
  */
-#define CONFIG_SYS_MALLOC_LEN		(CONFIG_ENV_SIZE + 2 * 1024 * 1024)
+#define CONFIG_SYS_MALLOC_LEN		(CONFIG_ENV_SIZE + 16 * 1024 * 1024)
 
 #define CONFIG_BOARD_EARLY_INIT_F
-#define BOARD_LATE_INIT
+#define CONFIG_BOARD_LATE_INIT
 
 /*
  * Hardware drivers
  */
 #define CONFIG_MXC_UART
-#define CONFIG_SYS_MX51_UART1
+#define CONFIG_MXC_UART_BASE		UART1_BASE
 #define CONFIG_CONS_INDEX		1
 #define CONFIG_BAUDRATE			115200
-#define CONFIG_SYS_BAUDRATE_TABLE	{9600, 19200, 38400, 57600, 115200}
 
 #define CONFIG_MXC_GPIO
 
@@ -107,7 +112,7 @@
 
 #define CONFIG_SPI_FLASH
 #define CONFIG_SPI_FLASH_SST
-#define CONFIG_SPI_FLASH_CS		(1 | 121 << 8)
+#define CONFIG_SF_DEFAULT_CS		(1 | 121 << 8)
 #define CONFIG_SF_DEFAULT_MODE		(SPI_MODE_0)
 #define CONFIG_SF_DEFAULT_SPEED		25000000
 
@@ -124,12 +129,15 @@
 #endif
 
 /* SPI PMIC */
-#define CONFIG_FSL_PMIC
+#define CONFIG_PMIC
+#define CONFIG_PMIC_SPI
+#define CONFIG_PMIC_FSL
 #define CONFIG_FSL_PMIC_BUS		0
 #define CONFIG_FSL_PMIC_CS		(0 | 120 << 8)
 #define CONFIG_FSL_PMIC_CLK		25000000
 #define CONFIG_FSL_PMIC_MODE		(SPI_MODE_0 | SPI_CS_HIGH)
-#define CONFIG_RTC_MC13783
+#define CONFIG_FSL_PMIC_BITLEN	32
+#define CONFIG_RTC_MC13XXX
 #endif
 
 /*
@@ -138,10 +146,8 @@
 #ifdef CONFIG_CMD_MMC
 #define CONFIG_MMC
 #define CONFIG_GENERIC_MMC
-#define CONFIG_FSL_ESDHC
-#define CONFIG_SYS_FSL_ESDHC_ADDR	0
-#define CONFIG_SYS_FSL_ESDHC_NUM	2
-#endif
+#define CONFIG_IMX_MMC
+#endif /* CONFIG_CMD_MMC */
 
 /*
  * ATA/IDE
@@ -172,17 +178,115 @@
 #endif
 
 /*
+ * USB
+
+#define	CONFIG_CMD_USB
+#ifdef	CONFIG_CMD_USB
+#define	CONFIG_USB_EHCI
+#define	CONFIG_USB_EHCI_MX5
+#define	CONFIG_USB_ULPI
+#define	CONFIG_USB_ULPI_VIEWPORT
+#define	CONFIG_MXC_USB_PORT	1
+#if	(CONFIG_MXC_USB_PORT == 0)
+#define	CONFIG_MXC_USB_PORTSC	(1 << 28)
+#define	CONFIG_MXC_USB_FLAGS	MXC_EHCI_INTERNAL_PHY
+#else
+#define	CONFIG_MXC_USB_PORTSC	(2 << 30)
+#define	CONFIG_MXC_USB_FLAGS	0
+#endif
+#define	CONFIG_EHCI_IS_TDI
+#define	CONFIG_USB_STORAGE
+#define	CONFIG_USB_HOST_ETHER
+#define	CONFIG_USB_KEYBOARD
+#define	CONFIG_SYS_USB_EVENT_POLL_VIA_CONTROL_EP
+#define CONFIG_PREBOOT
+#ifdef	CONFIG_CMD_NET
+#define	CONFIG_USB_ETHER_ASIX
+#define	CONFIG_CMD_PING
+#define	CONFIG_CMD_DHCP
+#endif
+#endif */ /* CONFIG_CMD_USB */
+
+
+/*
+ * USB
+ */
+#define	CONFIG_CMD_USB
+#ifdef	CONFIG_CMD_USB
+#define	CONFIG_USB_MAX_CONTROLLER_COUNT	3
+#define	CONFIG_USB_EHCI			/* Enable EHCI USB support */
+#define	CONFIG_USB_EHCI_MX5
+#define	CONFIG_USB_ULPI
+#define	CONFIG_USB_ULPI_VIEWPORT
+#define	CONFIG_MXC_USB_PORT	0
+#if	(CONFIG_MXC_USB_PORT == 0)
+#define	CONFIG_MXC_USB_PORTSC	(1 << 28)
+#define	CONFIG_MXC_USB_FLAGS	MXC_EHCI_INTERNAL_PHY
+#else
+#define	CONFIG_MXC_USB_PORTSC	(2 << 30)
+#define	CONFIG_MXC_USB_FLAGS	0
+#endif
+#define	CONFIG_MXC_USB_PORT1SC	(2 << 30)
+#define	CONFIG_MXC_USB_FLAGS1	0
+#define	CONFIG_MXC_USB_PORT2SC	(2 << 30)
+#define	CONFIG_MXC_USB_FLAGS2	0
+#define	CONFIG_EHCI_IS_TDI
+#define	CONFIG_USB_STORAGE
+#define	CONFIG_USB_HOST_ETHER
+#define	CONFIG_USB_KEYBOARD
+#define	CONFIG_SYS_USB_EVENT_POLL_VIA_CONTROL_EP
+#define CONFIG_PREBOOT
+/* USB NET */
+#ifdef	CONFIG_CMD_NET
+#define	CONFIG_USB_ETHER_ASIX
+#define	CONFIG_CMD_PING
+#define	CONFIG_CMD_DHCP
+#endif
+#endif /* CONFIG_CMD_USB */
+
+
+
+
+
+
+
+
+
+
+
+/*
+ * I2C
+ */
+#define CONFIG_CMD_I2C          1
+#define CONFIG_HARD_I2C         1
+#define CONFIG_I2C_MXC          1
+#define CONFIG_SYS_I2C_MX53_PORT2       1
+#define CONFIG_SYS_I2C_SPEED            400000
+#define CONFIG_SYS_I2C_SLAVE            0xfe
+
+/*
+ * Framebuffer and LCD
+ */
+#define CONFIG_VIDEO
+#define CONFIG_VIDEO_MX5
+#define CONFIG_VIDEO_SW_CURSOR
+#define CONFIG_CFB_CONSOLE
+#define CONFIG_VGA_AS_SINGLE_DEVICE
+#define CONFIG_VIDEO_BMP_RLE8
+#define CONFIG_SPLASH_SCREEN
+#define CONFIG_CMD_BMP
+#define CONFIG_BMP_16BPP
+#define CONFIG_SYS_WHITE_ON_BLACK
+
+/*
  * Filesystems
  */
 #ifdef CONFIG_CMD_FAT
 #define CONFIG_DOS_PARTITION
+#ifdef	CONFIG_CMD_NET
+#define	CONFIG_CMD_NFS
 #endif
-
-#undef CONFIG_CMD_PING
-#undef CONFIG_CMD_DHCP
-#undef CONFIG_CMD_NET
-#undef CONFIG_CMD_NFS
-#define CONFIG_CMD_DATE
+#endif
 
 /*
  * Miscellaneous configurable options
@@ -191,9 +295,22 @@
 #define CONFIG_BOOTDELAY		3
 #define CONFIG_LOADADDR			0x90800000
 
+#define CONFIG_EXTRA_ENV_SETTINGS 				\
+	"serverip=192.168.10.90\0"				\
+	"ipaddr=192.168.10.85\0"				\
+	"card=mmc reset; "					\
+	    "fatload mmc 0:1 0x91000000 kernel.uboot; "		\
+	    "bootm 0x91000000\0" 				\
+	"fat=ide reset; "					\
+	    "fatload ide 0:1 0x91000000 kernel.uboot; "		\
+	    "bootm 0x91000000\0" 				\
+	"bsd=tftp 0x91000000 efika_mx/kernel.uboot;"		\
+	    "mw.w 0x73f98000 0xff3c 1;"				\
+	    "bootm 0x91000000\0"
+
+
 #define CONFIG_SYS_LONGHELP		/* undef to save memory */
 #define CONFIG_SYS_HUSH_PARSER		/* use "hush" command parser */
-#define CONFIG_SYS_PROMPT_HUSH_PS2	"> "
 #define CONFIG_SYS_PROMPT		"Efika> "
 #define CONFIG_AUTO_COMPLETE
 #define CONFIG_SYS_CBSIZE		256	/* Console I/O Buffer Size */
@@ -203,7 +320,7 @@
 #define CONFIG_SYS_BARGSIZE CONFIG_SYS_CBSIZE /* Boot Argument Buffer Size */
 
 #define CONFIG_SYS_MEMTEST_START	0x90000000
-#define CONFIG_SYS_MEMTEST_END		0x10000
+#define CONFIG_SYS_MEMTEST_END		0x90010000
 
 #define CONFIG_SYS_LOAD_ADDR		CONFIG_LOADADDR
 

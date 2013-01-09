@@ -349,9 +349,6 @@ extern unsigned long get_clock_freq(void);
 
 /* Use the HUSH parser */
 #define CONFIG_SYS_HUSH_PARSER
-#ifdef	CONFIG_SYS_HUSH_PARSER
-#define CONFIG_SYS_PROMPT_HUSH_PS2 "> "
-#endif
 
 /* pass open firmware flat tree */
 #define CONFIG_OF_LIBFDT		1
@@ -463,6 +460,8 @@ extern unsigned long get_clock_freq(void);
 #define CONFIG_TSEC4
 #define CONFIG_TSEC4_NAME	"eTSEC3"
 #undef CONFIG_MPC85XX_FEC
+
+#define CONFIG_PHY_MARVELL
 
 #define TSEC1_PHY_ADDR		0
 #define TSEC2_PHY_ADDR		1

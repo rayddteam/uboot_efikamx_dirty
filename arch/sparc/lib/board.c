@@ -165,13 +165,10 @@ char *str_init_seq_done = "\n\rInit sequence done...\r\n\r\n";
 
 void board_init_f(ulong bootflag)
 {
-	cmd_tbl_t *cmdtp;
 	bd_t *bd;
 	unsigned char *s;
 	init_fnc_t **init_fnc_ptr;
 	int j;
-	int i;
-	char *e;
 
 #ifndef CONFIG_SYS_NO_FLASH
 	ulong flash_size;
@@ -336,8 +333,6 @@ void board_init_f(ulong bootflag)
 	mac_read_from_eeprom();
 #endif
 
-	/* IP Address */
-	bd->bi_ip_addr = getenv_IPaddr("ipaddr");
 #if defined(CONFIG_PCI)
 	/*
 	 * Do pci configuration
@@ -362,11 +357,6 @@ void board_init_f(ulong bootflag)
 
 	/* Initialize from environment */
 	load_addr = getenv_ulong("loadaddr", 16, load_addr);
-#if defined(CONFIG_CMD_NET)
-	if ((s = getenv("bootfile")) != NULL) {
-		copy_filename(BootFile, s, sizeof(BootFile));
-	}
-#endif /* CONFIG_CMD_NET */
 
 	WATCHDOG_RESET();
 
@@ -429,7 +419,7 @@ void hang(void)
 {
 	puts("### ERROR ### Please RESET the board ###\n");
 #ifdef CONFIG_SHOW_BOOT_PROGRESS
-	show_boot_progress(-30);
+	bootstage_error(BOOTSTAGE_ID_NEED_RESET);
 #endif
 	for (;;) ;
 }

@@ -225,13 +225,7 @@ int checkboard(void)
 	ccsr_gur_t *gur = (void *)(CONFIG_SYS_MPC85xx_GUTS_ADDR);
 	u8 in, out, io_config, val;
 
-	printf("Board: %s ", CONFIG_BOARDNAME);
-
-#ifdef CONFIG_PHYS_64BIT
-	puts("(36-bit addrmap) ");
-#endif
-
-	printf("CPLD: V%d.%d PCBA: V%d.0\n",
+	printf("Board: %s CPLD: V%d.%d PCBA: V%d.0\n", CONFIG_BOARDNAME,
 		in_8(&cpld_data->cpld_rev_major) & 0x0F,
 		in_8(&cpld_data->cpld_rev_minor) & 0x0F,
 		in_8(&cpld_data->pcba_rev) & 0x0F);
@@ -444,6 +438,9 @@ void ft_board_setup(void *blob, bd_t *bd)
 	fdt_board_fixup_qe_pins(blob);
 #endif
 #endif
+
+#if defined(CONFIG_HAS_FSL_DR_USB)
 	fdt_fixup_dr_usb(blob, bd);
+#endif
 }
 #endif

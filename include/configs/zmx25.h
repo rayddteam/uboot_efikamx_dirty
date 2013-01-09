@@ -46,7 +46,7 @@
 #define CONFIG_CMDLINE_TAG		/* enable passing of ATAGs	*/
 #define CONFIG_SETUP_MEMORY_TAGS
 #define CONFIG_INITRD_TAG
-#define BOARD_LATE_INIT
+#define CONFIG_BOARD_LATE_INIT
 
 /*
  * Compressions
@@ -66,10 +66,9 @@
  * Serial
  */
 #define CONFIG_MXC_UART
-#define CONFIG_SYS_MX25_UART2
+#define CONFIG_MXC_UART_BASE	UART2_BASE
 #define CONFIG_CONS_INDEX	1	/* use UART2 for console */
 #define CONFIG_BAUDRATE		115200	/* Default baud rate */
-#define CONFIG_SYS_BAUDRATE_TABLE	{ 9600, 19200, 38400, 57600, 115200 }
 
 /*
  * Ethernet
@@ -93,8 +92,6 @@
 #define CONFIG_CMD_NET
 #define CONFIG_CMD_CACHE
 
-#define CONFIG_SYS_64BIT_VSPRINTF
-
 /*
  * Additional command
  */
@@ -105,7 +102,6 @@
 #define CONFIG_CMD_USB
 
 #define CONFIG_SYS_HUSH_PARSER
-#define CONFIG_SYS_PROMPT_HUSH_PS2 "> "
 
 /*
  * USB

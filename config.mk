@@ -104,11 +104,30 @@ HOSTCFLAGS	+= -pedantic
 
 #########################################################################
 #
-# Option checker (courtesy linux kernel) to ensure
+# Option checker, gcc version (courtesy linux kernel) to ensure
 # only supported compiler options are used
 #
-cc-option = $(shell if $(CC) $(CFLAGS) $(1) -S -o /dev/null -xc /dev/null \
-		> /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi ;)
+CC_OPTIONS_CACHE_FILE := $(OBJTREE)/include/generated/cc_options.mk
+CC_TEST_OFILE := $(OBJTREE)/include/generated/cc_test_file.o
+
+-include $(CC_OPTIONS_CACHE_FILE)
+
+cc-option-sys = $(shell mkdir -p $(dir $(CC_TEST_OFILE)); \
+		if $(CC) $(CFLAGS) $(1) -S -xc /dev/null -o $(CC_TEST_OFILE) \
+		> /dev/null 2>&1; then \
+		echo 'CC_OPTIONS += $(strip $1)' >> $(CC_OPTIONS_CACHE_FILE); \
+		echo "$(1)"; fi)
+
+ifeq ($(CONFIG_CC_OPT_CACHE_DISABLE),y)
+cc-option = $(strip $(if $(call cc-option-sys,$1),$1,$2))
+else
+cc-option = $(strip $(if $(findstring $1,$(CC_OPTIONS)),$1,\
+		$(if $(call cc-option-sys,$1),$1,$2)))
+endif
+
+# cc-version
+# Usage gcc-ver := $(call cc-version)
+cc-version = $(shell $(SHELL) $(SRCTREE)/tools/gcc-version.sh $(CC))
 
 #
 # Include the make variables (CC, etc...)
@@ -124,6 +143,7 @@ STRIP	= $(CROSS_COMPILE)strip
 OBJCOPY = $(CROSS_COMPILE)objcopy
 OBJDUMP = $(CROSS_COMPILE)objdump
 RANLIB	= $(CROSS_COMPILE)RANLIB
+DTC	= dtc
 
 #########################################################################
 
@@ -208,11 +228,17 @@ else
 CFLAGS := $(CPPFLAGS) -Wall -Wstrict-prototypes
 endif
 
-CFLAGS += $(call cc-option,-fno-stack-protector)
+CFLAGS_SSP := $(call cc-option,-fno-stack-protector)
+CFLAGS += $(CFLAGS_SSP)
 # Some toolchains enable security related warning flags by default,
 # but they don't make much sense in the u-boot world, so disable them.
-CFLAGS += $(call cc-option,-Wno-format-nonliteral)
-CFLAGS += $(call cc-option,-Wno-format-security)
+CFLAGS_WARN := $(call cc-option,-Wno-format-nonliteral) \
+	       $(call cc-option,-Wno-format-security)
+CFLAGS += $(CFLAGS_WARN)
+
+# Report stack usage if supported
+CFLAGS_STACK := $(call cc-option,-fstack-usage)
+CFLAGS += $(CFLAGS_STACK)
 
 # $(CPPFLAGS) sets -g, which causes gcc to pass a suitable -g<format>
 # option to the assembler.

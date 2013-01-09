@@ -95,8 +95,7 @@ typedef enum {
  * Note these are different from IDMA channels
  */
 #define IPU_MAX_CH	32
-#define _MAKE_CHAN(num, v_in, g_in, a_in, out) \
-	((num << 24) | (v_in << 18) | (g_in << 12) | (a_in << 6) | out)
+#define _MAKE_CHAN(num, v_in, g_in, a_in, out) 			((num << 24) | (v_in << 18) | (g_in << 12) | (a_in << 6) | out)
 #define _MAKE_ALT_CHAN(ch)		(ch | (IPU_MAX_CH << 24))
 #define IPU_CHAN_ID(ch)			(ch >> 24)
 #define IPU_CHAN_ALT(ch)		(ch & 0x02000000)

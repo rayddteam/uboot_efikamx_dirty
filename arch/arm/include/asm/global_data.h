@@ -44,7 +44,7 @@ typedef	struct	global_data {
 	unsigned long	env_addr;	/* Address  of Environment struct */
 	unsigned long	env_valid;	/* Checksum of Environment valid? */
 	unsigned long	fb_base;	/* base address of frame buffer */
-#ifdef CONFIG_FSL_ESDHC
+#ifdef CONFIG_IMX_MMC
 	unsigned long	sdhc_clk;
 #endif
 #ifdef CONFIG_AT91FAMILY
@@ -76,6 +76,7 @@ typedef	struct	global_data {
 #if !(defined(CONFIG_SYS_ICACHE_OFF) && defined(CONFIG_SYS_DCACHE_OFF))
 	unsigned long	tlb_addr;
 #endif
+	const void	*fdt_blob;	/* Our device tree, NULL if none */
 	void		**jt;		/* jump table */
 	char		env_buf[32];	/* buffer for getenv() before reloc. */
 #if defined(CONFIG_POST) || defined(CONFIG_LOGBUFFER)
