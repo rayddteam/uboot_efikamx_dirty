@@ -129,12 +129,8 @@ static uint8_t i2c_imx_get_clk(unsigned int rate)
 		for (clk_div = 0; i2c_clk_div[clk_div][0] < div; clk_div++)
 			;
 
-<<<<<<< HEAD
 	/* Store divider value */
 	return clk_div;
-=======
-	return i2c_clk_div[i][1];
->>>>>>> 456fca9... I2C: Fix mxc_i2c.c problem on imx31_phycore
 }
 
 /*
@@ -154,12 +150,8 @@ void i2c_reset(void)
 void i2c_init(int speed, int unused)
 {
 	struct mxc_i2c_regs *i2c_regs = (struct mxc_i2c_regs *)I2C_BASE;
-<<<<<<< HEAD
 	u8 clk_idx = i2c_imx_get_clk(speed);
 	u8 idx = i2c_clk_div[clk_idx][1];
-=======
-	u8 idx = i2c_imx_get_clk(speed);
->>>>>>> 456fca9... I2C: Fix mxc_i2c.c problem on imx31_phycore
 
 	/* Store divider value */
 	writeb(idx, &i2c_regs->ifdr);
@@ -257,12 +249,8 @@ int i2c_imx_start(void)
 	unsigned int temp = 0;
 	int result;
 	int speed = i2c_get_bus_speed();
-<<<<<<< HEAD
 	u8 clk_idx = i2c_imx_get_clk(speed);
 	u8 idx = i2c_clk_div[clk_idx][1];
-=======
-	u8 idx = i2c_imx_get_clk(speed);
->>>>>>> 456fca9... I2C: Fix mxc_i2c.c problem on imx31_phycore
 
 	/* Store divider value */
 	writeb(idx, &i2c_regs->ifdr);
