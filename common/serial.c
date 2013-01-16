@@ -142,8 +142,6 @@ void serial_stdio_init(void)
 		dev.puts = s->puts;
 		dev.getc = s->getc;
 		dev.tstc = s->tstc;
-		setenv("stdout", "serial");
-		setenv("stdin", "serial");
 		stdio_register(&dev);
 
 		s = s->next;
