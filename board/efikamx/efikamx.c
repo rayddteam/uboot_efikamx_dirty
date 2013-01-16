@@ -103,6 +103,32 @@ u32 get_efikamx_rev(void)
 	return (~rev & 0x7) + 1;
 }
 
+int efika_mx_smartbook = 0;
+
+u32 get_efika_mx_smartbook_detect(void)
+{
+	u32 rev = 0, pu = 2, pd = 2;
+
+	mxc_request_iomux(MX51_PIN_NANDF_RB3, IOMUX_CONFIG_GPIO|IOMUX_CONFIG_SION);
+	gpio_direction_input(IOMUX_TO_GPIO(MX51_PIN_NANDF_RB3));
+
+	/* Value of not connected pin follow pull resistor */
+	mxc_iomux_set_pad(MX51_PIN_NANDF_RB3, PAD_CTL_100K_PU);
+	pu |= (!!gpio_get_value(IOMUX_TO_GPIO(MX51_PIN_NANDF_RB3)));
+
+	mxc_iomux_set_pad(MX51_PIN_NANDF_RB3, PAD_CTL_100K_PD);
+	pd |= (!!gpio_get_value(IOMUX_TO_GPIO(MX51_PIN_NANDF_RB3)));
+
+	/* If NANDF_RB3 is not connected, it is Smartbook */
+	if (pu && !pd) {
+		efika_mx_smartbook = 1;
+	} else {
+		efika_mx_smartbook = 0;
+	}
+
+	return (efika_mx_smartbook);
+}
+
 inline u32 get_efikasb_rev(void)
 {
 	u32 rev = 0;
@@ -335,6 +361,7 @@ int board_mmc_init(bd_t *bis)
 	int ret;
 	uint32_t cd = efika_mmc_cd();
 
+	printf("efika_mx_smartbook = %s\n", efika_mx_smartbook?"Smartbook":"Smarttop");
 	/* SDHC1 is used on all revisions, setup control pins first */
 	mxc_request_iomux(cd,
 		IOMUX_CONFIG_ALT0 | IOMUX_CONFIG_SION);
@@ -727,7 +754,60 @@ static void init_drive_strength(void)
 
 int board_early_init_f(void)
 {
+	get_efika_mx_smartbook_detect();
 	init_drive_strength();
+	// Setting IOMUXC
+        writel(0x000  , 0x73fa88a0);
+        writel(0x20c5 , 0x73fa850c);
+        writel(0x20c5 , 0x73fa8510);
+        writel(0x5    , 0x73fa883c);
+        writel(0x5    , 0x73fa8848);
+        writel(0xe7   , 0x73fa84b8);
+        writel(0x45   , 0x73fa84bc);
+        writel(0x45   , 0x73fa84c0);
+        writel(0x45   , 0x73fa84c4);
+        writel(0x45   , 0x73fa84c8);
+        writel(0x0    , 0x73fa8820);
+        writel(0x5    , 0x73fa84a4);
+        writel(0x5    , 0x73fa84a8);
+        writel(0xe5   , 0x73fa84ac);
+        writel(0xe5   , 0x73fa84b0);
+        writel(0xe5   , 0x73fa84b4);
+        writel(0xe5   , 0x73fa84cc);
+        writel(0xe4   , 0x73fa84d0);
+
+        writel(0x4    , 0x73fa882c);
+        writel(0x4    , 0x73fa88a4);
+        writel(0x4    , 0x73fa88ac);
+        writel(0x4    , 0x73fa88b8);
+
+	mxc_request_iomux(MX51_PIN_DISP1_DAT0, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT1, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT2, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT3, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT4, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT5, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT6, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT7, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT8, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT9, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT10, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT11, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT12, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT13, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT14, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT15, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT16, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT17, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT18, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT19, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT20, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT21, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT22, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DISP1_DAT23, IOMUX_CONFIG_ALT0);
+	mxc_request_iomux(MX51_PIN_DI1_PIN2, IOMUX_CONFIG_ALT0); /* (hsync) */
+	mxc_request_iomux(MX51_PIN_DI1_PIN3, IOMUX_CONFIG_ALT0); /* (vsync) */
+
 
 	setup_iomux_uart();
 	setup_iomux_spi();
@@ -772,6 +852,7 @@ int checkboard(void)
 {
 	u32 rev = get_efika_rev();
 
+	printf("efika_mx_smartbook = %s\n", efika_mx_smartbook?"Smartbook":"Smarttop");
 	if (machine_is_efikamx()) {
 		printf("Board: Efika MX, rev1.%i\n", rev & 0xf);
 		return 0;

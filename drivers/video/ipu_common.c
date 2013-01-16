@@ -38,6 +38,10 @@
 #include "ipu.h"
 #include "ipu_regs.h"
 
+#undef debug
+#define debug printf
+#define DEBUG
+
 extern struct mxc_ccm_reg *mxc_ccm;
 extern u32 *ipu_cpmem_base;
 
@@ -403,6 +407,12 @@ int ipu_probe(void)
 	unsigned long ipu_base;
 	u32 temp;
 
+	printf("%s:%d:\n", __func__, __LINE__);
+	debug("IPU_CONF = \t0x%08X\n", __raw_readl(IPU_CONF));
+
+	__raw_writel(0x00000660, IPU_CONF);
+	debug("IPU_CONF = \t0x%08X\n", __raw_readl(IPU_CONF));
+
 	u32 *reg_hsc_mcd = (u32 *)MIPI_HSC_BASE_ADDR;
 	u32 *reg_hsc_mxt_conf = (u32 *)(MIPI_HSC_BASE_ADDR + 0x800);
 
@@ -438,6 +448,9 @@ int ipu_probe(void)
 	while (__raw_readl(IPU_MEM_RST) & 0x80000000)
 		;
 
+	__raw_writel(0, IPU_MEM_RST);
+	debug("IPU_MEM_RST = \t0x%08X\n", __raw_readl(IPU_MEM_RST));
+
 	ipu_init_dc_mappings();
 
 	__raw_writel(0, IPU_INT_CTRL(5));
@@ -453,6 +466,8 @@ int ipu_probe(void)
 
 	/* Set MCU_T to divide MCU access window into 2 */
 	__raw_writel(0x00400000L | (IPU_MCU_T_DEFAULT << 18), IPU_DISP_GEN);
+
+	ipu_dump_registers();
 
 	clk_disable(g_ipu_clk);
 
@@ -682,6 +697,7 @@ static inline void ipu_ch_param_dump(int ch)
 {
 #ifdef DEBUG
 	struct ipu_ch_param *p = ipu_ch_param_addr(ch);
+	debug("IPU_CONF = \t0x%08X\n", __raw_readl(IPU_CONF));
 	debug("ch %d word 0 - %08X %08X %08X %08X %08X\n", ch,
 		 p->word[0].data[0], p->word[0].data[1], p->word[0].data[2],
 		 p->word[0].data[3], p->word[0].data[4]);
@@ -752,6 +768,8 @@ static void ipu_ch_param_init(int ch,
 	uint32_t v_offset = 0;
 	struct ipu_ch_param params;
 
+	printf("ipu_ch_param_init(ch[%d], pixel_fmt[%d], width[%d], height[%d], stride[%d], u[%d], v[%d], uv_stride[%d], addr0[%08x], addr1[%08x])\n",
+	    ch, pixel_fmt, width, height, stride, u, v, uv_stride, addr0, addr1);
 	memset(&params, 0, sizeof(params));
 
 	ipu_ch_param_set_field(&params, 0, 125, 13, width - 1);

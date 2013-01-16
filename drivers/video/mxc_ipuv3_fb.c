@@ -39,6 +39,9 @@
 #include "ipu.h"
 #include "mxcfb.h"
 
+#undef debug
+#define debug	printf
+
 static int mxcfb_map_video_memory(struct fb_info *fbi);
 static int mxcfb_unmap_video_memory(struct fb_info *fbi);
 
@@ -66,6 +69,33 @@ void fb_videomode_to_var(struct fb_var_screeninfo *var,
 	var->vsync_len = mode->vsync_len;
 	var->sync = mode->sync;
 	var->vmode = mode->vmode & FB_VMODE_MASK;
+}
+
+void fb_dump_videomode(const struct fb_videomode *mode)
+{
+	printf(
+	    "mode->xres = %d\t"
+	    "mode->yres = %d\t"
+	    "mode->pixclock = %d\n"
+	    "mode->left_margin = %d\t"
+	    "mode->right_margin = %d\t"
+	    "mode->upper_margin = %d\t"
+	    "mode->lower_margin = %d\n"
+	    "mode->hsync_len = %d\t"
+	    "mode->vsync_len = %d\t"
+	    "mode->sync = %d\t"
+	    "mode->vmode = %d\n",
+	    mode->xres,
+	    mode->yres,
+	    mode->pixclock,
+	    mode->left_margin,
+	    mode->right_margin,
+	    mode->upper_margin,
+	    mode->lower_margin,
+	    mode->hsync_len,
+	    mode->vsync_len,
+	    mode->sync,
+	    mode->vmode & FB_VMODE_MASK);
 }
 
 /*
@@ -96,7 +126,7 @@ enum {
 	BOTH_OFF
 };
 
-static unsigned long default_bpp = 16;
+static unsigned long default_bpp = 24;
 static unsigned char g_dp_in_use;
 static struct fb_info *mxcfb_info[3];
 static int ext_clk_used;
@@ -153,7 +183,17 @@ static int setup_disp_channel1(struct fb_info *fbi)
 	memset(&params, 0, sizeof(params));
 	params.mem_dp_bg_sync.di = mxc_fbi->ipu_di;
 
-	debug("%s called\n", __func__);
+	debug("%s: DI%d %x %d %d %d %lx %lx\n",
+		__func__,
+		mxc_fbi->ipu_di,
+		mxc_fbi->ipu_ch,
+		fbi->var.xres,
+		fbi->var.yres,
+		fbi->fix.line_length,
+		fbi->fix.smem_start,
+		fbi->fix.smem_start +
+		(fbi->fix.line_length * fbi->var.yres));
+
 	/*
 	 * Assuming interlaced means yuv output, below setting also
 	 * valid for mem_dc_sync. FG should have the same vmode as BG.
@@ -191,8 +231,9 @@ static int setup_disp_channel2(struct fb_info *fbi)
 
 	fbi->var.xoffset = fbi->var.yoffset = 0;
 
-	debug("%s: %x %d %d %d %lx %lx\n",
+	debug("%s: DI%d %x %d %d %d %lx %lx\n",
 		__func__,
+		mxc_fbi->ipu_di,
 		mxc_fbi->ipu_ch,
 		fbi->var.xres,
 		fbi->var.yres,
@@ -270,7 +311,7 @@ static int mxcfb_set_par(struct fb_info *fbi)
 	if (fbi->var.sync & FB_SYNC_CLK_IDLE_EN)
 		sig_cfg.clkidle_en = 1;
 
-	debug("pixclock = %ul Hz\n",
+	debug("pixclock = %u Hz\n",
 		(u32) (PICOS2KHZ(fbi->var.pixclock) * 1000UL));
 
 	if (ipu_init_sync_panel(mxc_fbi->ipu_di,
@@ -418,7 +459,7 @@ static int mxcfb_map_video_memory(struct fb_info *fbi)
 	fbi->screen_base = (char *)malloc(fbi->fix.smem_len);
 	fbi->fix.smem_start = (unsigned long)fbi->screen_base;
 	if (fbi->screen_base == 0) {
-		puts("Unable to allocate framebuffer memory\n");
+		printf("Unable to allocate %08x bytes of framebuffer memory\n", fbi->fix.smem_len);
 		fbi->fix.smem_len = 0;
 		fbi->fix.smem_start = 0;
 		return -EBUSY;
@@ -540,7 +581,8 @@ static int mxcfb_probe(u32 interface_pix_fmt, uint8_t disp,
 
 	mxcfbi->ipu_di_pix_fmt = interface_pix_fmt;
 	fb_videomode_to_var(&fbi->var, mode);
-	fbi->var.bits_per_pixel = 16;
+	fb_dump_videomode(mode);
+	fbi->var.bits_per_pixel = 24;
 	fbi->fix.line_length = fbi->var.xres * (fbi->var.bits_per_pixel / 8);
 	fbi->fix.smem_len = fbi->var.yres_virtual * fbi->fix.line_length;
 
@@ -565,8 +607,8 @@ static int mxcfb_probe(u32 interface_pix_fmt, uint8_t disp,
 	panel.frameAdrs = (u32)fbi->screen_base;
 	panel.memSize = fbi->screen_size;
 
-	panel.gdfBytesPP = 2;
-	panel.gdfIndex = GDF_16BIT_565RGB;
+	panel.gdfBytesPP = 3;
+	panel.gdfIndex = GDF_24BIT_888RGB;
 
 	ipu_dump_registers();
 
@@ -601,6 +643,7 @@ void video_set_lut(unsigned int index, /* color number */
 
 int ipuv3_fb_init(struct fb_videomode *mode, uint8_t disp, uint32_t pixfmt)
 {
+	printf("%s: mode = %08x, disp = %d, pixfmt = %d\n", __func__, mode, disp, pixfmt);
 	gmode = mode;
 	gdisp = disp;
 	gpixfmt = pixfmt;

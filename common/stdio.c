@@ -110,6 +110,8 @@ struct stdio_dev* stdio_get_by_name(const char *name)
 	struct list_head *pos;
 	struct stdio_dev *dev;
 
+	name = "serial";
+
 	if(!name)
 		return NULL;
 

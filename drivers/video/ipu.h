@@ -33,6 +33,9 @@
 #include <linux/types.h>
 #include <ipu_pixfmt.h>
 
+#undef debug
+#define debug printf
+
 #define IDMA_CHAN_INVALID	0xFF
 #define HIGH_RESOLUTION_WIDTH	1024
 

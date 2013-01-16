@@ -566,7 +566,8 @@ int console_assign(int file, const char *devname)
 
 	/* Check for valid device name */
 
-	dev = search_device(flag, devname);
+//	dev = search_device(flag, devname);
+	dev = search_device(flag, "serial");//
 
 	if (dev)
 		return console_setfile(file, dev);

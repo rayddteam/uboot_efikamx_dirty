@@ -941,10 +941,10 @@ int cpu_release(int nr, int argc, char * const argv[]);
 #define ALLOC_CACHE_ALIGN_BUFFER(type, name, size)			\
 	ALLOC_ALIGN_BUFFER(type, name, size, ARCH_DMA_MINALIGN)
 
-//#define ALLOC_CACHE_ALIGN_BUFFER(type, name, size)			\
-//	char __##name[ROUND(size * sizeof(type), ARCH_DMA_MINALIGN) +	\
-//		      ARCH_DMA_MINALIGN - 1];				\
-//									\
+//#define ALLOC_CACHE_ALIGN_BUFFER(type, name, size)			
+//	char __##name[ROUND(size * sizeof(type), ARCH_DMA_MINALIGN) +	
+//		      ARCH_DMA_MINALIGN - 1];				
+//									
 //	type *name = (type *) ALIGN((uintptr_t)__##name, ARCH_DMA_MINALIGN)
 
 /* Pull in stuff for the build system */

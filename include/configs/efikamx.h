@@ -41,6 +41,7 @@
 #define CONFIG_SYS_MX5_CLK32		32768
 #define CONFIG_DISPLAY_CPUINFO
 #define CONFIG_DISPLAY_BOARDINFO
+#define CONFIG_CONSOLE_MUX
 
 #define CONFIG_SYS_TEXT_BASE		0x97800000
 
@@ -296,6 +297,9 @@
 #define CONFIG_LOADADDR			0x90800000
 
 #define CONFIG_EXTRA_ENV_SETTINGS 				\
+	"stdin=usbkbd,serial\0"					\
+	"stdout=vga,serial\0"					\
+	"stderr=vga,serial\0"					\
 	"serverip=192.168.10.90\0"				\
 	"ipaddr=192.168.10.85\0"				\
 	"card=mmc reset; "					\
