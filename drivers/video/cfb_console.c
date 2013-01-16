@@ -1834,26 +1834,21 @@ int drv_video_init(void)
 	int skip_dev_init;
 	struct stdio_dev console_dev;
 
-	printf("%s:%d\n", __func__, __LINE__);
 	/* Check if video initialization should be skipped */
 	if (board_video_skip())
 		return 0;
 
-	printf("%s:%d\n", __func__, __LINE__);
 	/* Init video chip - returns with framebuffer cleared */
 	skip_dev_init = (video_init() == -1);
 
 #if !defined(CONFIG_VGA_AS_SINGLE_DEVICE)
-	printf("%s:%d\n", __func__, __LINE__);
 	debug("KBD: Keyboard init ...\n");
 	skip_dev_init |= (VIDEO_KBD_INIT_FCT == -1);
 #endif
 
-	printf("%s:%d\n", __func__, __LINE__);
 	if (skip_dev_init)
 		return 0;
 
-	printf("%s:%d\n", __func__, __LINE__);
 	/* Init vga device */
 	memset(&console_dev, 0, sizeof(console_dev));
 	strcpy(console_dev.name, "vga");
@@ -1865,7 +1860,6 @@ int drv_video_init(void)
 	console_dev.getc = NULL;	/* 'getc' function */
 
 #if !defined(CONFIG_VGA_AS_SINGLE_DEVICE)
-	printf("%s:%d\n", __func__, __LINE__);
 	/* Also init console device */
 	console_dev.flags |= DEV_FLAGS_INPUT;
 	console_dev.tstc = VIDEO_TSTC_FCT;	/* 'tstc' function */
@@ -1875,7 +1869,6 @@ int drv_video_init(void)
 	if (stdio_register(&console_dev) != 0)
 		return 0;
 
-	printf("%s:%d\n", __func__, __LINE__);
 	video_puts("Hello!\n");
 	/* Return success */
 	return 1;
