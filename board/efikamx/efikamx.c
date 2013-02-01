@@ -239,6 +239,16 @@ static void power_init(void)
 	pmic_init();
 	p = get_pmic();
 
+	/* Disable VVIDEO and VDIG regulators, to reset SGTL5000 */
+	pmic_reg_read(p, REG_MODE_1, &val);
+	val &= ~VVIDEOEN;
+	pmic_reg_write(p, REG_MODE_1, val);
+	pmic_reg_read(p, REG_MODE_0, &val);
+	val &= ~VDIGEN;
+	pmic_reg_write(p, REG_MODE_0, val);
+
+	udelay(20000);
+
 	/* Write needed to Power Gate 2 register */
 	pmic_reg_read(p, REG_POWER_MISC, &val);
 	val &= ~PWGT2SPIEN;
@@ -288,10 +298,10 @@ static void power_init(void)
 		(SWMODE_AUTO_AUTO << SWMODE4_SHIFT);
 	pmic_reg_write(p, REG_SW_5, val);
 
-	/* Set VDIG to 1.8V, VGEN3 to 1.8V, VCAM to 2.6V */
+	/* Set VDIG to 1.65V, VGEN3 to 1.8V, VCAM to 2.6V */
 	pmic_reg_read(p, REG_SETTING_0, &val);
 	val &= ~(VCAM_MASK | VGEN3_MASK | VDIG_MASK);
-	val |= VDIG_1_8 | VGEN3_1_8 | VCAM_2_6;
+	val |= VDIG_1_65 | VGEN3_1_8 | VCAM_2_6;
 	pmic_reg_write(p, REG_SETTING_0, val);
 
 	/* Set VVIDEO to 2.775V, VAUDIO to 3V, VSD to 3.15V */
@@ -842,6 +852,7 @@ int board_late_init(void)
 	efikamx_toggle_led(EFIKAMX_LED_BLUE);
 
 	setup_iomux_i2c();
+	i2c_reset();
 
 	setup_efika_lcd();
 
