@@ -70,9 +70,9 @@ void setup_iomux_usb(void)
 	if (machine_is_efikasb())
 		setup_iomux_usb_h2();
 
-#define EFIKASB_BT_POWER	MX51_PIN_EIM_EB2	/* GPIO1 22 */
-#define EFIKASB_WIFI_RESET	MX51_PIN_EIM_D24	/* GPIO1 8 */
-#define EFIKASB_WIFI_POWER	MX51_PIN_EIM_EB3	/* GPIO1 23 */
+#define EFIKASB_BT_POWER	MX51_PIN_EIM_A17	/* GPIO1 22 */
+#define EFIKASB_WIFI_RESET	MX51_PIN_EIM_A16	/* GPIO1 8 */
+#define EFIKASB_WIFI_POWER	MX51_PIN_EIM_A22	/* GPIO1 23 */
 #define EFIKASB_WWAN_WAKEUP	MX51_PIN_CSI1_HSYNC	/* GPIO2 15 */
 #define EFIKASB_WWAN_POWER	MX51_PIN_CSI2_D13	/* GPIO3 10 */
 #define EFIKASB_WWAN_SIM	MX51_PIN_EIM_CS1	/* GPIO1 26 */
@@ -99,6 +99,8 @@ void setup_iomux_usb(void)
 	mxc_request_iomux(MX51_PIN_EIM_A17, IOMUX_CONFIG_GPIO);
 	mxc_iomux_set_pad(MX51_PIN_EIM_A17, 0);
 #else
+	mxc_request_iomux(EFIKASB_RFKILL_SWITCH, IOMUX_CONFIG_GPIO);
+	mxc_iomux_set_pad(EFIKASB_RFKILL_SWITCH, USB_PAD_CONFIG);
 	mxc_request_iomux(EFIKASB_BT_POWER, IOMUX_CONFIG_ALT1);
 	mxc_iomux_set_pad(EFIKASB_BT_POWER, USB_PAD_CONFIG);
 	mxc_request_iomux(EFIKASB_WIFI_RESET, IOMUX_CONFIG_ALT1);
@@ -144,6 +146,9 @@ static void efika_usb_enable_devices(void)
 	udelay(10000);
 	gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_EIM_A16), 1);
 #else
+	/* Enable RFKILL switch (without this, WiFi/BT doesn't show up) */
+	gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_RFKILL_SWITCH));
+
 	/* Enable Bluetooth */
 	gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_BT_POWER), 0);
 	udelay(10000);
